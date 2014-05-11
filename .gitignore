@@ -1,3 +1,7 @@
+/mendeley/config.py
+/.idea/
+/user_auth/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
