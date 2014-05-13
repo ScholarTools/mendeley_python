@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 """
 
+This module is meant to handle things related to authentication for the
+Mendeley API. Currently only private authentication is supported.
+
+
 """
 
 import datetime
@@ -12,42 +16,40 @@ import os, inspect
 
 #http://apidocs.mendeley.com/home/authentication
 
-
-#pyMendeley.auth.request_authorization_code
-#TODO: This layout will likely change
-
-#TODO: Move this to another module
-#Goal was to have this function make API requests ...
-class makeRequest():
-    pass
-
-
-
-class AccessToken(AuthBase):
+class UserAccessToken(AuthBase):
     
     """
     This class represents an access token. An access token allows a program to
     access user specific information. This class should normally be retrieved
     by:
     
-    1) Calling AccessToken.load(username)
-    2) Calling get_access_token()
+    1) Calling UserAccessToken.load(username)
+    2) Calling get_access_token(username,password)
     
     Attributes:
     -------------------------------------------
     version : str
         The current version of the access token. Since these are saved to disk
         this value is retained
+    username : str
+    access_token : str
+        The actual access token. This might be renamed ...
+    token_type : str
+        I'm not really sure what this is for. It is currently sent in response
+        to a request for an access token but I'm not using it. Currently the 
+        value is "bearer"
+        
+    JAH NOTE: I'm not thrilled with the name of this class ...
     """  
     
     
-    #NOTE: Maybe this should be pulled from a user config ... ????
-    RENEW_TIME = datetime.timedelta(minutes=5)    
+    #NYI: The goal is to say if the token will expire in 1 minute, renew it now 
+    #rather than making a request and finding that the token has expired
+    RENEW_TIME = datetime.timedelta(minutes = 1)    
     
     def __init__(self,json,user_info):
         self.version       = 1
         self.username      = user_info.username
-        #self.password      = user_info.password
         
         self.populateTokenFromJSON(json)
              
@@ -59,7 +61,27 @@ class AccessToken(AuthBase):
         
         return None
 
+
+    def __repr__(self):
+        
+        #TODO: Make generic and make a call to the generic function
+        str1 =        '      version : %d\n' % (self.version)
+        str1 = str1 + '     username : %s\n' % (self.username)
+        str1 = str1 + '  acess_token : %s\n' % (self.access_token)
+        str1 = str1 + '   token_type : %s\n' % (self.token_type)
+        str1 = str1 + 'refresh_token : %s\n' % (self.refresh_token)
+        str1 = str1 + '      expires : %s\n' % (str(self.expires))
+        
+        return str1
+
     def __call__(self,r):
+        
+        """
+        This method is called before a request is sent.
+        
+        See Also:
+        .api.UserMethods
+        """
         #Called before request is sent
           
         self.renewTokenIfNecessary()
@@ -79,7 +101,7 @@ class AccessToken(AuthBase):
     def renewTokenIfNecessary(self):
       
         """
-         Renews the access token if it has expired.
+        Renews the access token if it about to or has expired.
       
       
         """
@@ -121,10 +143,27 @@ class AccessToken(AuthBase):
         return None
       
     @staticmethod
-    def getFilePath(username):
+    def getFilePath(username,create_folder_if_no_exist = False):
 
-        """
-        mendeley.auth.getFilePath
+        """     
+        Provides a consistent path to where this object can be saved and loaded
+        from. Currently this path is located in a "user_auth" directory 
+        that is at the same level as the "mendeley" package.  
+        
+        repo_base:
+            - mendeley  - Mendeley package
+            - user_auth - Directory for storing access info. This directory
+                          is excluded from commits by the .gitignore file.
+        
+        Parameters:
+        -----------
+        #TODO
+        
+        Returns:
+        -------
+        str
+                
+        
         """
 
         #Create a valid save name from the username (email)
@@ -138,29 +177,47 @@ class AccessToken(AuthBase):
         
         #Go up to root, then down to specific save path
         root_path = os.path.split(package_path)[0]
-        save_path = os.path.join(root_path,'user_auth',save_name)
+        save_folder_path = os.path.join(root_path,'user_auth')
+
+        if create_folder_if_no_exist and not os.path.exists(save_folder_path):
+            os.mkdir(save_folder_path)
         
-        return save_path        
+        final_save_path = os.path.join(save_folder_path,save_name)
+        
+        return final_save_path        
         
     def save(self):
-        save_path = AccessToken.getFilePath(self.username)
+        
+        """
+        Saves the class instance to disk.
+        """
+        save_path = self.getFilePath(self.username, create_folder_if_no_exist = True)
         with open(save_path, "wb") as f:
             pickle.dump(self,f)
         return None
     
     @staticmethod
-    def load(username = None):
+    def does_token_exist(username):
+        pass
+        #TODO: Allow user to see if the token exists
+    
+    @classmethod
+    def load(cls, username = None):
         
         """
         Loads the class instance from disk.        
         
         Parameters
-        ---------------------
+        ----------
         username : str
             If the username is not passed in then a default user should be
             defined in the config file.
         """
+
+        
+
         #TODO: Do an explicit test for file existence (or catch and test)
+        
         #TODO: This should have version lookup
         #https://docs.python.org/2/library/pickle.html#pickling-and-unpickling-normal-class-instances
         #would involve using __setstate__
@@ -168,7 +225,12 @@ class AccessToken(AuthBase):
             du       = config.defaultUser
             username = du.username
             
-        load_path = AccessToken.getFilePath(username)
+        load_path = cls.getFilePath(username)
+        
+        if not os.path.isfile(load_path):
+            raise Exception('Requested token does not exist')
+                
+        
         with open(load_path,'rb') as f:
             temp = pickle.load(f)
             
@@ -182,21 +244,29 @@ class UserInfo(object):
     This is a small little class that stores user info. The irony of such a
     class given OAuth is not lost on me.    
     
+    This class might be removed in favor of only using the authorization code.
+    
+    Previously I had used the profile methods to get a unique id but it seems
+    like that function has changed :/ The use case I have in mind is someone
+    that manually provides an authorization code. It would be nice to be able
+    to automatically pull their information given this code, rather than
+    have them provide it as well.
+    
     Attributes:
     ----------------------------------------
     username : str
         The username is actually an email address.
     password : str
         The user's password.
-    code : str
+    authorization_code : str
         An authorizaton code given to the client when the user "authorizes" the
         client to have access to the user's account.
     
     """
-    def __init__(self,username,password,code):
-        self.username = username;
-        self.password = password;
-        self.code     = code;
+    def __init__(self,username,password,authorization_code):
+        self.username           = username
+        self.password           = password
+        self.authorization_code = authorization_code
         
     def getBasicAuth(self):
         """
@@ -204,13 +274,28 @@ class UserInfo(object):
         """
         return requests.auth.HTTPBasicAuth(self.username,self.password)
 
-def request_authorization_code(username,password):
+#TODO: This will provide a URL for the user
+def get_authorization_code_manually():
+    pass
+
+    
+
+
+def get_authorization_code_auto(username,password):
+    
+    """
+    Parameters:
+    -----------
+    username : str
+    
+    password : str
+        
+    """    
     
     URL = 'https://api-oauth2.mendeley.com/oauth/authorize'
     
     #STEP 1: Get form
     #----------------------------------------------
-    #TODO: I think this step can be skipped    
     payload = {
         'client_id'     : config.Oauth2Creds.client_id, 
         'redirect_uri'  : 'https://localhost', 
@@ -235,38 +320,87 @@ def request_authorization_code(username,password):
     #----------------------------------------------
     parsed_url = requests.utils.urlparse(r2.headers['location'])
     
-    #TODO: Update with response from Slashdot    
+    #TODO: Update with response from StackOverflow    
     #instead of blindly grabbing the query
     #query => 'code=value'
-    code = parsed_url.query[5:]
+    authorization_code = parsed_url.query[5:]
     
-    user = UserInfo(username,password,code)    
+    user = UserInfo(username,password,authorization_code)    
     
     return user
-  
-"""
-def get_access_token(username,password)
-code  = auth.request_authorization_code(du.username,du.password)
-token = auth.get_access_token(code)
-#token.save()
+ 
+#TODO: Finish this ...
+def get_user_access_token_with_prompts(save_token = True):
+    pass
 
-"""
-  
-def code_for_token(user):
+ 
+def get_user_access_token_no_prompts(username,password,save_token = True):
+
+    """
+    This function returns an access token for accessing user information. It 
+    does so without requiring any user prompts. As such it requires the user
+    to enter their password into this function.    
+    
+    Parameters:
+    -----------
+    username : str
+        The user name as prompted by Mendeley. This is usually the email
+        address used to log into Mendeley.
+    password : str
+        The password associated with the account. This is currently only used 
+        in order to get the access token.
         
-    #TODO: add autosave option here ...        
-        
+    Returns
+    -------
+    UserAccessToken
+        This token can be used to request information from the user's account.
+    
     """
 
+    code  = get_authorization_code_auto(username,password)
+    token = trade_code_for_user_access_token(code)
+    
+    if save_token:
+        token.save()
+        
+    return token
+  
+def trade_code_for_user_access_token(user):
+             
+    """
+    
+    TODO: If everything is successful, the code itself should be sufficient
+    at this point. User information can be gathered from requests.
+
+    This method asks Mendeley for an access token given a code. This code comes
+    from the user telling Mendeley that this client (identified by a Client ID)
+    has permission to get information from the user.
+    
+    Parameters:
+    -----------
+    user: UserInfo
+        This contains informaton about the user and can be obtained from:
+        request_authorization_code.
+
+    Returns:
+    --------
+    UserAccessToken
+        This token can be used to request information from the user's account.
+        
+    See Also:
+    ---------
+        
+    
     """
     
     URL     = 'https://api-oauth2.mendeley.com/oauth/token'
     
+    #TODO: This may or may not actually be needed
     headers = {'content-type': 'application/x-www-form-urlencoded'}
     
     payload = {
         'grant_type'    : 'authorization_code',
-        'code'          : user.code,
+        'code'          : user.authorization_code,
         'redirect_uri'  : 'https://localhost',
         'client_secret' : config.Oauth2Creds.client_secret,
         'client_id'     : config.Oauth2Creds.client_id,
@@ -277,4 +411,4 @@ def code_for_token(user):
     if r.status_code != requests.codes.ok:
       raise Exception('TODO: Fix me, request failed ...')    
     
-    return AccessToken(r.json(),user)
+    return UserAccessToken(r.json(),user)
