@@ -13,6 +13,7 @@ as appropriate.
 class Oauth2Creds(object):
     client_secret = ''
     client_id     = ''
+    redirect_url  = ''
     
 #Optional    
 class defaultUser(object):

@@ -24,7 +24,9 @@ um  = mapi.UserMethods()
 wtf = um.profile_get_info()
 #wtf = um.get_library_ids(items = 1)
 
-pdb.set_trace()
+#4 Public Testing
+#-------------------------------
+auth.get_public_credentials()
 
 
 

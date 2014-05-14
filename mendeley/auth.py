@@ -65,14 +65,13 @@ class UserAccessToken(AuthBase):
     def __repr__(self):
         
         #TODO: Make generic and make a call to the generic function
-        str1 =        '      version : %d\n' % (self.version)
-        str1 = str1 + '     username : %s\n' % (self.username)
-        str1 = str1 + '  acess_token : %s\n' % (self.access_token)
-        str1 = str1 + '   token_type : %s\n' % (self.token_type)
-        str1 = str1 + 'refresh_token : %s\n' % (self.refresh_token)
-        str1 = str1 + '      expires : %s\n' % (str(self.expires))
-        
-        return str1
+        return \
+            '      version : %d\n' % (self.version)         + \
+            '     username : %s\n' % (self.username)        + \
+            '  acess_token : %s\n' % (self.access_token)    + \
+            '   token_type : %s\n' % (self.token_type)      + \
+            'refresh_token : %s\n' % (self.refresh_token)   + \
+            '      expires : %s\n' % (str(self.expires))
 
     def __call__(self,r):
         
@@ -93,9 +92,13 @@ class UserAccessToken(AuthBase):
       
     @property
     def token_expired(self):
+        
+        """
+        Determine if the token has expired. As of this writing
+        the token expires 1 hour after being granted.
+        """
         time_diff = self.expires - datetime.datetime.now()
       
-        #I'm a bit surprised this isn't a @property ...
         return time_diff.total_seconds() < 0
 
     def renewTokenIfNecessary(self):
@@ -106,6 +109,7 @@ class UserAccessToken(AuthBase):
       
         """
       
+        #TODO: Replace with some buffer so that the request goes through
         if self.token_expired:
             self.renewToken()
         
@@ -365,6 +369,93 @@ def get_user_access_token_no_prompts(username,password,save_token = True):
         
     return token
   
+
+class PublicAccessToken(object):
+    
+    """
+    TODO: Fill this out    
+    
+    """
+    
+    def __init__(self,json):
+        self.access_token = json['access_token']
+        self.token_type   = json['token_type']
+        self.expires_in   = datetime.datetime.now() + datetime.timedelta(seconds=json['expires_in'])
+        
+    @property
+    def token_expired(self):
+        
+        """
+        Determine if the token has expired. As of this writing
+        the token expires 1 hour after being granted.
+        """
+        time_diff = self.expires - datetime.datetime.now()
+      
+        return time_diff.total_seconds() < 0
+        
+    def __call__(self,r):
+        
+        """
+        This method is called before a request is sent.
+        
+        See Also:
+        .api.PublicMethods
+        """
+        #Called before request is sent
+          
+        self.renewTokenIfNecessary()
+        
+        r.headers['Authorization'] =  "bearer " + self.access_token       
+        
+        return r        
+     
+    def renewTokenIfNecessary(self):
+      
+        """
+        Renews the access token if it about to or has expired.
+      
+      
+        """
+      
+              
+        #TODO: I'm not sure how best to do this ...
+        #Perhaps move the request into here, and have the method:
+    # get_public_token just call the helper function ...
+      
+        #TODO: Replace with some buffer so that the request goes through
+        if self.token_expired:
+            pass
+        
+        return None
+        
+    def _make_request_for_token():
+         pass
+     
+         #TODO: Move logic from function here ...
+        
+        
+        
+
+def get_public_credentials():
+
+    """
+        Get's information needed for making public requests
+    """
+    
+    URL     = 'https://api-oauth2.mendeley.com/oauth/token'
+  
+    payload = {
+        'grant_type'    : 'client_credentials',
+        'redirect_uri'  : config.Oauth2Creds.redirect_url,
+        'client_secret' : config.Oauth2Creds.client_secret,
+        'client_id'     : config.Oauth2Creds.client_id,
+        }   
+  
+    r = requests.post(URL,data=payload)
+  
+    import pdb
+    pdb.set_trace()
+  
 def trade_code_for_user_access_token(user):
              
     """
@@ -401,7 +492,7 @@ def trade_code_for_user_access_token(user):
     payload = {
         'grant_type'    : 'authorization_code',
         'code'          : user.authorization_code,
-        'redirect_uri'  : 'https://localhost',
+        'redirect_uri'  : config.Oauth2Creds.redirect_url,
         'client_secret' : config.Oauth2Creds.client_secret,
         'client_id'     : config.Oauth2Creds.client_id,
         } 

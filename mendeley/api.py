@@ -13,6 +13,12 @@ import requests
 import pdb
 from . import api_user_results as uresults
 
+class PublicMethods():
+    
+    def __init__(self):
+        #TODO: Get anonymous token
+        pass
+
 class UserMethods():
 
     """
