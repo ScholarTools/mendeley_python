@@ -5,6 +5,20 @@ Insert description here
 
 from .utils import assign_json
 
+class TopAuthor(object):
+    
+    """
+    See more information on this object at:
+    @DOC: http://apidocs.mendeley.com/home/public-resources/stats-authors
+    
+    I've posted some questions there which may or may not ever get answered :/
+    """
+    def __init__(self,json):
+        self.name  = json['name']
+        self.value = json['value']
+        #?? - do we want to know the discipline as well????
+        
+        
 class LibraryResponse(object):
     
     """

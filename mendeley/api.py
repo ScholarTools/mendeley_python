@@ -8,34 +8,24 @@ This module is meant to implement all functions described at:
 
 """
 
+import urllib
 from . import auth
 import requests
 import pdb
 from . import api_user_results as uresults
 
-class PublicMethods():
+class _APIMethods(object):
     
-    def __init__(self):
-        #TODO: Get anonymous token
-        pass
+    BASE_URL = 'https://api-oauth2.mendeley.com/oapi/' 
 
-class UserMethods():
+    #TODO: Have something that indicates that access_token is required
+    #for subclasses to have ...
 
-    """
-    This class exposes API calls that are specific to a user.
+    @staticmethod
+    def fix_url_input(input_string):
+        return urllib.quote(input_string,'')
         
-    
-    """
-    
-    BASE_URL = 'https://api-oauth2.mendeley.com/oapi/'    
-    
-    def __init__(self, username = None):
-        self.access_token = auth.UserAccessToken.load(username)
-        
-        #Other potential properties:
-        #- return raw
-        #- 
-           
+
     def make_get_request(self, url, params = None, good_status = 200):
                 
         """
@@ -63,12 +53,142 @@ class UserMethods():
         
             
         
-        r = requests.get(url,params=params,auth=self.access_token)
+        r = requests.get(url,params=params,auth=self.access_token)      
         
         if r.status_code != good_status:
-            raise Exception('Call failed') #TODO: This should be improved
+            print(r.text)
+            print('')
+            raise Exception('Call failed with status: %d' % (r.status_code)) #TODO: This should be improved
                     
         return r
+
+
+class PublicMethods(_APIMethods):
+    
+       
+    
+    def __init__(self):
+        self.access_token = auth.get_public_credentials()
+        pass
+    
+    """
+    ===========================================================================
+                                Stats Methods
+    ===========================================================================
+    """
+    
+    def get_top_authors(self,discipline_id = None):
+        """
+        Returns list of all-time top authors across all disciplines, 
+        unless a discipline is specified.
+        
+        Parameters:
+        -----------
+        discipline_id : int, str (default None)
+            Discipline ID is an enumeration of disciplines. This list comes
+            from the method get_disciplines
+        """        
+        
+        url = self.BASE_URL + 'stats/authors/'
+    
+        params = {
+            'discipline'   :  discipline_id}
+
+        r = self.make_get_request(url,params)    
+
+        #NOTE: We might not get JSON ... 
+        temp_json = r.json()
+        return [uresults.TopAuthor(x) for x in temp_json]
+        
+    """
+    ===========================================================================
+                                Search Methods
+    ===========================================================================
+    """        
+    
+    def search_Mendeley_catalog(self,terms,page=0,items=20):
+        """
+        Searches Mendeley catalog for entries with matches.
+        
+        @DOC: http://apidocs.mendeley.com/home/public-resources/search-terms
+        """
+        
+        url = self.BASE_URL + 'documents/search/%s/' % (self.fix_url_input(terms))        
+       
+        params = {
+            'page'   :  page,
+            'items'  :  items}       
+       
+        r = self.make_get_request(url,params)
+        pdb.set_trace()       
+       
+        #TODO: Build response
+        #total_results
+        #items_per_page
+        #total_pages
+        #current_page
+        #documents       
+       
+        return None
+    
+    def get_entry_details(self):
+        """
+        
+        @DOC: http://apidocs.mendeley.com/home/public-resources/search-details
+        """
+        pass
+    
+    def get_related_papers(self,id):
+        """
+        Returns list of up to 20 research papers related to the queried 
+        canonical id.
+        
+        @DOC: http://apidocs.mendeley.com/home/public-resources/search-related
+        """
+        url = self.BASE_URL + 'documents/related/%s/' + id
+        
+        r = self.make_get_request(url)
+        pdb.set_trace()
+        
+        return None
+        
+    def get_pubs_with_name(self,name,page=0,items=20,year=None):
+        """
+        Returns list of publications with that author name.
+        
+        @DOC: http://apidocs.mendeley.com/home/public-resources/search-authored        
+        """
+        
+        url = self.BASE_URL + 'documents/authored/%s/' + self.fix_url_input(name)
+
+        params = {
+            'page'   :  page,
+            'items'  :  items,
+            'year'   :  year}
+
+        r = self.make_get_request(url,params)
+        pdb.set_trace()
+        
+        return None
+
+class UserMethods(_APIMethods):
+
+    """
+    This class exposes API calls that are specific to a user.
+        
+    
+    """
+    
+    BASE_URL = 'https://api-oauth2.mendeley.com/oapi/'    
+    
+    def __init__(self, username = None):
+        self.access_token = auth.UserAccessToken.load(username)
+        
+        #Other potential properties:
+        #- return raw
+        #- 
+           
+
 
 
     """

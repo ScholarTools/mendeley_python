@@ -4,19 +4,29 @@
 This module is meant to handle things related to authentication for the
 Mendeley API. Currently only private authentication is supported.
 
+The interface for this code is currently in flux. The main pieces of the code
+are in place but I'm working on rearranging them.
+
 
 """
 
 import datetime
-import requests
-from requests.auth import AuthBase
 from . import config
 import pickle
 import os, inspect
 
+import requests
+from requests.auth import AuthBase
+
 #http://apidocs.mendeley.com/home/authentication
 
-class UserAccessToken(AuthBase):
+
+class _AccessToken(AuthBase):
+    #TODO: Move some functionality from other classes to here ...
+    pass
+    
+
+class UserAccessToken(_AccessToken):
     
     """
     This class represents an access token. An access token allows a program to
@@ -71,7 +81,8 @@ class UserAccessToken(AuthBase):
             '  acess_token : %s\n' % (self.access_token)    + \
             '   token_type : %s\n' % (self.token_type)      + \
             'refresh_token : %s\n' % (self.refresh_token)   + \
-            '      expires : %s\n' % (str(self.expires))
+            '      expires : %s\n' % (str(self.expires))    + \
+            ' token_expired: %s\n' % (self.token_expired)
 
     def __call__(self,r):
         
@@ -109,8 +120,7 @@ class UserAccessToken(AuthBase):
       
         """
       
-        #TODO: Replace with some buffer so that the request goes through
-        if self.token_expired:
+        if datetime.datetime.now() + self.RENEW_TIME > self.expires:
             self.renewToken()
         
         return None
@@ -370,18 +380,30 @@ def get_user_access_token_no_prompts(username,password,save_token = True):
     return token
   
 
-class PublicAccessToken(object):
+class PublicAccessToken(_AccessToken):
     
     """
     TODO: Fill this out    
     
     """
     
+    RENEW_TIME = datetime.timedelta(minutes = 1)      
+    
     def __init__(self,json):
+        
         self.access_token = json['access_token']
         self.token_type   = json['token_type']
-        self.expires_in   = datetime.datetime.now() + datetime.timedelta(seconds=json['expires_in'])
+        self.expires      = datetime.datetime.now() + datetime.timedelta(seconds=json['expires_in'])
+    
+    def __repr__(self):
         
+        #TODO: Make generic and make a call to the generic function
+        return \
+            '  acess_token : %s\n' % (self.access_token)    + \
+            '   token_type : %s\n' % (self.token_type)      + \
+            '      expires : %s\n' % (str(self.expires))    + \
+            ' token_expired: %s\n' % (self.token_expired)
+    
     @property
     def token_expired(self):
         
@@ -405,7 +427,7 @@ class PublicAccessToken(object):
           
         self.renewTokenIfNecessary()
         
-        r.headers['Authorization'] =  "bearer " + self.access_token       
+        r.headers['Authorization'] =  "bearer " + self.access_token
         
         return r        
      
@@ -417,23 +439,33 @@ class PublicAccessToken(object):
       
         """
       
-              
-        #TODO: I'm not sure how best to do this ...
-        #Perhaps move the request into here, and have the method:
-    # get_public_token just call the helper function ...
-      
-        #TODO: Replace with some buffer so that the request goes through
-        if self.token_expired:
-            pass
-        
+        if datetime.datetime.now() + self.RENEW_TIME > self.expires:
+            json = self._make_request_for_token()
+            self.__init__(json)
+            
         return None
         
+    @staticmethod   
     def _make_request_for_token():
-         pass
-     
-         #TODO: Move logic from function here ...
+
+        """
         
+        """
+        URL     = 'https://api-oauth2.mendeley.com/oauth/token'
+  
+        payload = {
+            'grant_type'    : 'client_credentials',
+            'redirect_uri'  : config.Oauth2Creds.redirect_url,
+            'client_secret' : config.Oauth2Creds.client_secret,
+            'client_id'     : config.Oauth2Creds.client_id,
+            }   
+  
+        r = requests.post(URL,data=payload)
         
+        if r.status_code != requests.codes.ok:
+            raise Exception('Request failed, TODO: Make error more explicit')
+        
+        return r.json()
         
 
 def get_public_credentials():
@@ -442,19 +474,11 @@ def get_public_credentials():
         Get's information needed for making public requests
     """
     
-    URL     = 'https://api-oauth2.mendeley.com/oauth/token'
-  
-    payload = {
-        'grant_type'    : 'client_credentials',
-        'redirect_uri'  : config.Oauth2Creds.redirect_url,
-        'client_secret' : config.Oauth2Creds.client_secret,
-        'client_id'     : config.Oauth2Creds.client_id,
-        }   
-  
-    r = requests.post(URL,data=payload)
-  
-    import pdb
-    pdb.set_trace()
+    #TODO: Cache results ...
+    
+    r = PublicAccessToken._make_request_for_token()
+    
+    return PublicAccessToken(r)
   
 def trade_code_for_user_access_token(user):
              
