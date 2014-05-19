@@ -8,7 +8,7 @@ This module is meant to implement all functions described at:
 
 """
 
-import urllib
+import urllib2
 from . import auth
 import requests
 import pdb
@@ -22,8 +22,12 @@ class _APIMethods(object):
     #for subclasses to have ...
 
     @staticmethod
-    def fix_url_input(input_string):
-        return urllib.quote(input_string,'')
+    def fix_url_input(input_data):
+        
+        if isinstance(input_data, basestring):
+            return urllib2.quote(input_data,'')
+        else:
+            return urllib2.quote(str(input_data),'')
         
 
     def make_get_request(self, url, params = None, good_status = 200):
@@ -31,7 +35,7 @@ class _APIMethods(object):
         """
 
         Parameters:
-        ----------------------------------------            
+        -----------          
         url : str
             URL to go to
         params : dict (default {})
@@ -40,6 +44,11 @@ class _APIMethods(object):
         good_status : int (default 200)
             The status to check for as to whether or not the request 
             was successful.
+            
+        See Also:
+        ---------
+        .auth.UserAccessToken.__call__()
+        .auth.PublicAccessToken.__call__()
         """
         
         if params is None:
@@ -52,7 +61,9 @@ class _APIMethods(object):
         #        
         
             
-        
+        #NOTE: We make authorization go through the access token. The request
+        #will call the access_token prior to sending the request. Specifically
+        #the __call__ method is called.
         r = requests.get(url,params=params,auth=self.access_token)      
         
         if r.status_code != good_status:
@@ -131,12 +142,28 @@ class PublicMethods(_APIMethods):
        
         return None
     
-    def get_entry_details(self):
+    def get_entry_details(self,id,id_type='Mendeley'):
         """
         
+        Parameters:
+        -----------
+        id : int, str
+        id_type : {'Mendeley','arxiv','doi','isbn','pmid','scopus','ssm'}
+            
         @DOC: http://apidocs.mendeley.com/home/public-resources/search-details
         """
-        pass
+        
+        url = self.BASE_URL + 'documents/details/%s/' % (self.fix_url_input(id))     
+        
+        if id_type is 'Mendeley':
+            id_type = None #No type means use Mendeley canonical ID
+        
+        params = {
+            'type'   :  id_type}       
+       
+        r = self.make_get_request(url,params)
+       
+        return uresults.PublicJournalArticle(r.json())
     
     def get_related_papers(self,id):
         """

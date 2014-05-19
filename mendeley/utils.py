@@ -1,12 +1,20 @@
 # -*- coding: utf-8 -*-
 """
-Insert description here
+
 """
+
+def get_unnasigned_json(json_data,populated_object):
+    if len(json_data) == 0:
+        return {}
+    else:
+        temp_keys = populated_object.__dict__.keys()
+        return dict((key,json_data[key]) for key in set(json_data) if key not in temp_keys)
 
 def assign_json(json_data, field_name, optional=True, default=None):
     
     """
-    This function can be used to make an assignment
+    This function can be used to make an assignment to an object. Since the
+    majority of returned json repsonses contain optional ...
     """    
     
     if field_name in json_data:

@@ -7,6 +7,10 @@ Mendeley API. Currently only private authentication is supported.
 The interface for this code is currently in flux. The main pieces of the code
 are in place but I'm working on rearranging them.
 
+TODO: Make sure that all calls necessary are exposed as method of this module,
+not as methods of the classes
+
+TODO: Tokens should be singletons ...
 
 """
 
@@ -23,8 +27,20 @@ from requests.auth import AuthBase
 
 class _AccessToken(AuthBase):
     #TODO: Move some functionality from other classes to here ...
-    pass
     
+    @staticmethod
+    def get_save_base_path(create_folder_if_no_exist = False):
+        #http://stackoverflow.com/questions/50499/in-python-how-do-i-get-the-path-and-name-of-the-file-that-is-currently-executin/50905#50905
+        package_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))   
+        
+        #Go up to root, then down to specific save path
+        root_path = os.path.split(package_path)[0]
+        save_folder_path = os.path.join(root_path,'user_auth')
+
+        if create_folder_if_no_exist and not os.path.exists(save_folder_path):
+            os.mkdir(save_folder_path)  
+            
+        return save_folder_path
 
 class UserAccessToken(_AccessToken):
     
@@ -121,12 +137,12 @@ class UserAccessToken(_AccessToken):
         """
       
         if datetime.datetime.now() + self.RENEW_TIME > self.expires:
-            self.renewToken()
+            self.renew_token()
         
         return None
       
       
-    def renewToken(self):
+    def renew_token(self):
       
         """
     
@@ -156,8 +172,8 @@ class UserAccessToken(_AccessToken):
       
         return None
       
-    @staticmethod
-    def getFilePath(username,create_folder_if_no_exist = False):
+    @classmethod
+    def get_file_path(cls,username,create_folder_if_no_exist = False):
 
         """     
         Provides a consistent path to where this object can be saved and loaded
@@ -184,19 +200,11 @@ class UserAccessToken(_AccessToken):
         #----------------------------------------------------------------------
         #Good enough for now ... 
         #Removes periods from email addresses, leaves other characters
-        save_name = username.replace('.','') + '.pickle'
+        save_name        = username.replace('.','') + '.pickle'
 
-        #http://stackoverflow.com/questions/50499/in-python-how-do-i-get-the-path-and-name-of-the-file-that-is-currently-executin/50905#50905
-        package_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))   
+        save_folder_path = cls.get_save_base_path(create_folder_if_no_exist)
         
-        #Go up to root, then down to specific save path
-        root_path = os.path.split(package_path)[0]
-        save_folder_path = os.path.join(root_path,'user_auth')
-
-        if create_folder_if_no_exist and not os.path.exists(save_folder_path):
-            os.mkdir(save_folder_path)
-        
-        final_save_path = os.path.join(save_folder_path,save_name)
+        final_save_path  = os.path.join(save_folder_path,save_name)
         
         return final_save_path        
         
@@ -205,7 +213,7 @@ class UserAccessToken(_AccessToken):
         """
         Saves the class instance to disk.
         """
-        save_path = self.getFilePath(self.username, create_folder_if_no_exist = True)
+        save_path = self.get_file_path(self.username, create_folder_if_no_exist = True)
         with open(save_path, "wb") as f:
             pickle.dump(self,f)
         return None
@@ -239,7 +247,7 @@ class UserAccessToken(_AccessToken):
             du       = config.defaultUser
             username = du.username
             
-        load_path = cls.getFilePath(username)
+        load_path = cls.get_file_path(username)
         
         if not os.path.isfile(load_path):
             raise Exception('Requested token does not exist')
@@ -287,6 +295,168 @@ class UserInfo(object):
         This turned out not to be needed. I'm leaving it in for now.
         """
         return requests.auth.HTTPBasicAuth(self.username,self.password)
+
+
+class PublicAccessToken(_AccessToken):
+    
+    """
+    TODO: Fill this out    
+    
+    """
+    
+    TOKEN_SAVE_NAME = 'client_auth.pickle'
+    RENEW_TIME = datetime.timedelta(minutes = 1)      
+    
+    def __init__(self,json):
+        
+        self.access_token = json['access_token']
+        self.token_type   = json['token_type']
+        self.expires      = datetime.datetime.now() + datetime.timedelta(seconds=json['expires_in'])
+    
+    def __repr__(self):
+        
+        #TODO: Make generic and make a call to the generic function
+        return \
+            '  acess_token : %s\n' % (self.access_token)    + \
+            '   token_type : %s\n' % (self.token_type)      + \
+            '      expires : %s\n' % (str(self.expires))    + \
+            ' token_expired: %s\n' % (self.token_expired)
+    
+    @property
+    def token_expired(self):
+        
+        """
+        Determine if the token has expired. As of this writing
+        the token expires 1 hour after being granted.
+        """
+        time_diff = self.expires - datetime.datetime.now()
+      
+        return time_diff.total_seconds() < 0
+        
+    def __call__(self,r):
+        
+        """
+        This method is called before a request is sent.
+        
+        See Also:
+        .api.PublicMethods
+        """
+        #Called before request is sent
+          
+        self.renewTokenIfNecessary()
+        
+        r.headers['Authorization'] =  "bearer " + self.access_token
+        
+        return r        
+     
+     
+    @classmethod
+    def get_file_path(cls,create_folder_if_no_exist = False):
+
+        """     
+        Provides a consistent path to where this object can be saved and loaded
+        from. Currently this path is located in a "user_auth" directory 
+        that is at the same level as the "mendeley" package.  
+        
+        repo_base:
+            - mendeley  - Mendeley package
+            - user_auth - Directory for storing access info. This directory
+                          is excluded from commits by the .gitignore file.
+        
+        Parameters:
+        -----------
+        #TODO
+        
+        Returns:
+        -------
+        str
+                
+        
+        """
+
+        save_folder_path = cls.get_save_base_path(create_folder_if_no_exist)
+        
+        final_save_path  = os.path.join(save_folder_path,cls.TOKEN_SAVE_NAME)
+        
+        return final_save_path      
+     
+    def renewTokenIfNecessary(self):
+      
+        """
+        Renews the access token if it about to or has expired.
+        """
+
+        #TODO: It would be nice to have this in AccessToken
+      
+        if datetime.datetime.now() + self.RENEW_TIME > self.expires:
+            json = self._make_request_for_token()
+            self.__init__(json)
+            
+        return None
+    
+    def save(self):
+        
+        """
+        Saves the class instance to disk.
+        """
+        save_path = self.get_file_path(create_folder_if_no_exist = True)
+        with open(save_path, "wb") as f:
+            pickle.dump(self,f)
+        return None
+    
+    @classmethod
+    def token_exists_on_disk(cls):
+        load_path = cls.get_file_path(create_folder_if_no_exist = False)
+        return os.path.isfile(load_path)
+    
+    @classmethod
+    def load(cls):
+        
+        """
+        Loads the class instance from disk.        
+        
+        """
+
+        
+        load_path = cls.get_file_path()
+        
+        if not os.path.isfile(load_path):
+            raise Exception('Requested token does not exist')
+                
+        
+        with open(load_path,'rb') as f:
+            temp = pickle.load(f)
+                        
+        return temp        
+    
+    @staticmethod   
+    def _make_request_for_token():
+
+        """
+        Requests the client token from Mendeley. The results can then be
+        used to construct OR update the object.
+        
+        See Also:
+        ---------------
+        get_public_credentials
+        
+        """
+        URL     = 'https://api-oauth2.mendeley.com/oauth/token'
+  
+        payload = {
+            'grant_type'    : 'client_credentials',
+            'redirect_uri'  : config.Oauth2Creds.redirect_url,
+            'client_secret' : config.Oauth2Creds.client_secret,
+            'client_id'     : config.Oauth2Creds.client_id,
+            }   
+  
+        r = requests.post(URL,data=payload)
+        
+        if r.status_code != requests.codes.ok:
+            raise Exception('Request failed, TODO: Make error more explicit')
+        
+        return r.json()
+
 
 #TODO: This will provide a URL for the user
 def get_authorization_code_manually():
@@ -380,105 +550,30 @@ def get_user_access_token_no_prompts(username,password,save_token = True):
     return token
   
 
-class PublicAccessToken(_AccessToken):
-    
-    """
-    TODO: Fill this out    
-    
-    """
-    
-    RENEW_TIME = datetime.timedelta(minutes = 1)      
-    
-    def __init__(self,json):
-        
-        self.access_token = json['access_token']
-        self.token_type   = json['token_type']
-        self.expires      = datetime.datetime.now() + datetime.timedelta(seconds=json['expires_in'])
-    
-    def __repr__(self):
-        
-        #TODO: Make generic and make a call to the generic function
-        return \
-            '  acess_token : %s\n' % (self.access_token)    + \
-            '   token_type : %s\n' % (self.token_type)      + \
-            '      expires : %s\n' % (str(self.expires))    + \
-            ' token_expired: %s\n' % (self.token_expired)
-    
-    @property
-    def token_expired(self):
-        
-        """
-        Determine if the token has expired. As of this writing
-        the token expires 1 hour after being granted.
-        """
-        time_diff = self.expires - datetime.datetime.now()
-      
-        return time_diff.total_seconds() < 0
-        
-    def __call__(self,r):
-        
-        """
-        This method is called before a request is sent.
-        
-        See Also:
-        .api.PublicMethods
-        """
-        #Called before request is sent
-          
-        self.renewTokenIfNecessary()
-        
-        r.headers['Authorization'] =  "bearer " + self.access_token
-        
-        return r        
-     
-    def renewTokenIfNecessary(self):
-      
-        """
-        Renews the access token if it about to or has expired.
-      
-      
-        """
-      
-        if datetime.datetime.now() + self.RENEW_TIME > self.expires:
-            json = self._make_request_for_token()
-            self.__init__(json)
-            
-        return None
-        
-    @staticmethod   
-    def _make_request_for_token():
 
-        """
-        
-        """
-        URL     = 'https://api-oauth2.mendeley.com/oauth/token'
-  
-        payload = {
-            'grant_type'    : 'client_credentials',
-            'redirect_uri'  : config.Oauth2Creds.redirect_url,
-            'client_secret' : config.Oauth2Creds.client_secret,
-            'client_id'     : config.Oauth2Creds.client_id,
-            }   
-  
-        r = requests.post(URL,data=payload)
-        
-        if r.status_code != requests.codes.ok:
-            raise Exception('Request failed, TODO: Make error more explicit')
-        
-        return r.json()
         
 
 def get_public_credentials():
 
     """
-        Get's information needed for making public requests
+        Get's credentials needed for making public requests. This
+        is the authentication info needed for the client.
+        
+        Returns:
+        --------
+        PublicAccessToken
     """
     
-    #TODO: Cache results ...
+    if PublicAccessToken.token_exists_on_disk():
+        return PublicAccessToken.load()
+    else:
+        r = PublicAccessToken._make_request_for_token()
+        
+        pat = PublicAccessToken(r)    
     
-    r = PublicAccessToken._make_request_for_token()
+        pat.save()    
     
-    return PublicAccessToken(r)
+        return pat
   
 def trade_code_for_user_access_token(user):
              

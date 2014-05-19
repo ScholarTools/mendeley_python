@@ -29,6 +29,11 @@ from mendeley import api as mapi
 pm = mapi.PublicMethods()
 #pm.get_top_authors()
 
+wtf = pm.get_entry_details(10461217,'pmid')
+#wtf = pm.get_entry_details(12345,'pmid')
+import pdb
+pdb.set_trace()
+
 pm.search_Mendeley_catalog('Year:2007 Author:Grill') #Nothing :/
 
 
