@@ -5,8 +5,43 @@ This module contains the resulting objects created from API calls.
 It's design is currently in flux and will likely change.
 """
 
+from . import api_results_analysis as analysis
+
+from datetime import datetime
+import inspect
+import os
+import pickle
+
 from .utils import assign_json, get_unnasigned_json
 
+
+def _get_save_base_path(api_object, create_folder_if_no_exist=True):
+
+    """
+        Return where to save user results based on the user and whether or not
+        the private or public authorization is being used.
+        
+        This function is currently unfinished
+    """
+    #Public - error not yet implemented
+
+    import pdb
+    pdb.set_trace()
+
+    #Private -
+    package_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+
+    #Go up to root, then down to specific save path
+    root_path        = os.path.split(package_path)[0]
+    save_folder_path = os.path.join(root_path, 'data', 'credentials')
+
+    if create_folder_if_no_exist and not os.path.exists(save_folder_path):
+        os.mkdir(save_folder_path)
+
+    return save_folder_path
+
+
+    pass
 
 class TopAuthor(object):
     
@@ -15,7 +50,12 @@ class TopAuthor(object):
     @DOC: http://apidocs.mendeley.com/home/public-resources/stats-authors
     
     I've posted some questions there which may or may not ever get answered :/
+    
+    See Also:
+    .api.PublicMethods.get_top_authors
     """
+    
+    #TODO: Build rank into class, in case things are shuffled ...
     def __init__(self,json):
         self.name  = json['name']
         self.value = json['value']
@@ -95,6 +135,11 @@ class JournalIDs(IDs):
         
 class JournalArticle(object):
     
+    """
+    Created by:
+    
+    This class is currently in development
+    """
     type = 'Journal Article'
     
     def __init__(self,json_data):
@@ -257,7 +302,7 @@ class DisciplineReadershipStats(object):
         return self.__repr__()
 
         
-class LibraryResponse(object):
+class LibraryIDs(object):
     
     """
     
@@ -265,26 +310,54 @@ class LibraryResponse(object):
     http://apidocs.mendeley.com/home/user-specific-methods/user-library
     
     Attributes:
-    ---------------------------------------------
-    
+    -----------
+    TODO: Finish this ...
     
     """
     
-    def __init__(self,json):
-        self.document_ids   = json['document_ids']
-        self.documents      = json['documents']
-            #Contains:
-            #  - id
-            #  - version         
+    def __init__(self, json, user_api):
+        self.created_date      = datetime.now()
+        self.document_ids      = [x['id'] for x in json['documents']]
+        self.document_versions = [x['version'] for x in json['documents']]       
+        self.total_results     = json['total_results']
+        self.current_page      = json['current_page']
+        self.total_pages       = json['total_pages']
+        self.items_per_page    = json['items_per_page']
+        self._user_api         = user_api   
+        #TODO: Do I want a 'is full' attribute that indicates all values have been saved????
+      
+    def __repr__(self):
+        return \
+        '     created_date: %s\n' % (str(self.created_date)) + \
+        '    total_results: %d\n' % (self.total_results)     + \
+        '     current_page: %d\n' % (self.current_page)      + \
+        '      total_pages: %d\n' % (self.total_pages)       + \
+        '   items_per_page: %d\n' % (self.items_per_page)    + \
+        '     document_ids: [1 x %d] List\n' % (len(self.document_ids)) + \
+        'document_versions: [1 x %d] List\n' % (len(self.document_versions))
         
-        self.total_results  = json['total_results']
-        self.current_page   = json['current_page']
-        self.total_pages    = json['total_pages']
-        self.items_per_page = json['items_per_page']
+    def save(self):
+        """
+        Saves the class instance to disk.
+        """
+        save_path = _get_save_base_path(self._user_api, create_folder_if_no_exist = True)
         
-#Will hold off on for now ...
-#class LibraryIDHolder(object):
+        #TODO: What should the file name be ...
+
+        with open(save_path, "wb") as f:
+            pickle.dump(self,f)
+        return None
+
+    def get_changes_from_old_version(self,old_self):
+        return analysis.LibraryIDDifferences(self,old_self)
     
+    #NOTE: I'm not sure if I want to pass in an old version for comparison
+    #or if I want to have the old version get the new version
+    #def get_updates(self,old_obj):
+    #    return LibraryIDDifferences(self,old_obj)
+         
+
+            
 class ProfileInfo(object):
     
     def __init__(self,json):

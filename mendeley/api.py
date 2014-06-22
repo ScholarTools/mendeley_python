@@ -3,7 +3,9 @@
 
 This module is meant to implement all functions described at:
 
-
+http://apidocs.mendeley.com/home/public-resources
+&
+http://apidocs.mendeley.com/home/user-specific-methods
 
 
 """
@@ -16,6 +18,9 @@ from . import api_user_results as uresults
 
 class _APIMethods(object):
     
+    """
+    This is a shared superclass for both the public and private API classes.
+    """
     BASE_URL = 'https://api-oauth2.mendeley.com/oapi/' 
 
     #TODO: Have something that indicates that access_token is required
@@ -47,8 +52,8 @@ class _APIMethods(object):
             
         See Also:
         ---------
-        .auth.UserAccessToken.__call__()
-        .auth.PublicAccessToken.__call__()
+        .auth.UserCredentials.__call__()
+        .auth.PublicCredentials.__call__()
         """
         
         if params is None:
@@ -76,10 +81,14 @@ class _APIMethods(object):
 
 class PublicMethods(_APIMethods):
     
-       
+    """
+    This class exposes the public methods of the API.
+    
+    TOOD Example:
+    """
     
     def __init__(self):
-        self.access_token = auth.get_public_credentials()
+        self.access_token = auth._get_public_credentials()
         pass
     
     """
@@ -209,14 +218,21 @@ class UserMethods(_APIMethods):
     BASE_URL = 'https://api-oauth2.mendeley.com/oapi/'    
     
     def __init__(self, username = None):
-        self.access_token = auth.UserAccessToken.load(username)
+        """
+        
+        """
+
+        self.access_token = auth.UserCredentials.load(username)
         
         #Other potential properties:
-        #- return raw
+        #- return raw, or more generically, return type, if raw then
+        #the raw text is returned, alternatively we could just allow returning
+        #json
         #- 
            
-
-
+    @property
+    def username(self):
+        return self.access_token.username
 
     """
     ===========================================================================
@@ -245,7 +261,7 @@ class UserMethods(_APIMethods):
     """
 
 
-    def docs_get_library_ids(self, page=0, items=20):
+    def docs_get_library_ids(self, page=0, items=20, get_all=False):
         """
         Returns a set of IDs that the user has in their library. These ID's 
         uniquely identify library entries.          
@@ -256,12 +272,16 @@ class UserMethods(_APIMethods):
             Page # to get, 0 based.
         items : int, str (default 20)
             Maximum # of items per page to return.
-     
-        
-        
+        get_all : logical (default False)
+            If true this returns all ids in the library.
+
         Returns:
         @DOC: http://apidocs.mendeley.com/home/user-specific-methods/user-library
         """
+
+        if get_all is True:
+            temp = self.docs_get_library_ids(page=0,items=1)
+            return self.docs_get_library_ids(page=0,items=temp.total_results)
     
         url = self.BASE_URL + 'library/'
     
@@ -271,7 +291,7 @@ class UserMethods(_APIMethods):
 
         r = self.make_get_request(url,params)    
     
-        return uresults.LibraryResponse(r.json())
+        return uresults.LibraryIDs(r.json(),self)
    
     def docs_get_user_authored():
         """
@@ -340,4 +360,25 @@ class UserMethods(_APIMethods):
         r = self.make_get_request(url,params)    
     
         return uresults.ProfileInfo(r.json())
+     
+    def __repr__(self):
+        #TODO: Add on current user ...
+        return \
+        'Stats Methods:\n' + \
+        '   stats_authors\n' + \
+        '   stats_tags\n' + \
+        '   stats_publications\n' + \
+        'Document Methods:\n' + \
+        '   docs_get_library_ids\n' + \
+        '   docs_get_user_authored\n' + \
+        '   docs_get_details\n' + \
+        '   docs_create_new\n' + \
+        '   docs_update\n' + \
+        '   docs_upload_file\n' + \
+        '   docs_download_file\n' + \
+        '   docs_delete\n' + \
+        'Profile Methods:\n' + \
+        '   profile_get_info\n'
+        
+        
         

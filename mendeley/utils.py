@@ -4,6 +4,14 @@
 """
 
 def get_unnasigned_json(json_data,populated_object):
+    """
+       Given an object which has had fields assigned to it, as well as the 
+       JSON dict from which these values were retrieved, this function returns
+       a list of keys that were not used for populating the object.
+       
+       In order to match the attribute names and dictionary keys must have the
+       same names.
+    """
     if len(json_data) == 0:
         return {}
     else:

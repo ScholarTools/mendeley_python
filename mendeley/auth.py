@@ -2,7 +2,7 @@
 """
 
 This module is meant to handle things related to authentication for the
-Mendeley API. Currently only private authentication is supported.
+Mendeley API.
 
 The interface for this code is currently in flux. The main pieces of the code
 are in place but I'm working on rearranging them.
@@ -10,14 +10,15 @@ are in place but I'm working on rearranging them.
 TODO: Make sure that all calls necessary are exposed as method of this module,
 not as methods of the classes
 
-TODO: Tokens should be singletons ...
+TODO: Tokens should be singletons by name
 
 """
 
 import datetime
 from . import config
 import pickle
-import os, inspect
+import os
+import inspect
 
 import requests
 from requests.auth import AuthBase
@@ -25,8 +26,16 @@ from requests.auth import AuthBase
 #http://apidocs.mendeley.com/home/authentication
 
 
-class _AccessToken(AuthBase):
-    #TODO: Move some functionality from other classes to here ...
+class _Credentials(AuthBase):
+    
+    """
+    This is a superclass for:
+    UserCredentials
+    PublicCredentials
+    
+    TODO: I currently have a lot of duplicated code between the two classes that
+    needs to be moved to here.
+    """
     
     @staticmethod
     def get_save_base_path(create_folder_if_no_exist = False):
@@ -34,22 +43,22 @@ class _AccessToken(AuthBase):
         package_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))   
         
         #Go up to root, then down to specific save path
-        root_path = os.path.split(package_path)[0]
-        save_folder_path = os.path.join(root_path,'user_auth')
+        root_path        = os.path.split(package_path)[0]
+        save_folder_path = os.path.join(root_path, 'data', 'credentials')
 
         if create_folder_if_no_exist and not os.path.exists(save_folder_path):
             os.mkdir(save_folder_path)  
             
         return save_folder_path
 
-class UserAccessToken(_AccessToken):
+class UserCredentials(_Credentials):
     
     """
     This class represents an access token. An access token allows a program to
     access user specific information. This class should normally be retrieved
     by:
     
-    1) Calling UserAccessToken.load(username)
+    1) Calling UserCredentials.load(username)
     2) Calling get_access_token(username,password)
     
     Attributes:
@@ -73,13 +82,13 @@ class UserAccessToken(_AccessToken):
     #rather than making a request and finding that the token has expired
     RENEW_TIME = datetime.timedelta(minutes = 1)    
     
-    def __init__(self,json,user_info):
-        self.version       = 1
-        self.username      = user_info.username
+    def __init__(self, json, user_info):
+        self.version  = 1
+        self.username = user_info.username
         
-        self.populateTokenFromJSON(json)
+        self.populate_token_from_JSON(json)
              
-    def populateTokenFromJSON(self,json):
+    def populate_token_from_JSON(self, json):
         self.access_token  = json['access_token']
         self.token_type    = json['token_type']
         self.refresh_token = json['refresh_token']
@@ -90,7 +99,7 @@ class UserAccessToken(_AccessToken):
 
     def __repr__(self):
         
-        #TODO: Make generic and make a call to the generic function
+        #TODO: Make generic and make a call to the generic function (low priority)
         return \
             '      version : %d\n' % (self.version)         + \
             '     username : %s\n' % (self.username)        + \
@@ -103,16 +112,16 @@ class UserAccessToken(_AccessToken):
     def __call__(self,r):
         
         """
-        This method is called before a request is sent.
+        This method is called before a request is sent as part of inheriting from AuthBase
         
         See Also:
         .api.UserMethods
         """
         #Called before request is sent
           
-        self.renewTokenIfNecessary()
+        self.renew_token_if_necessary()
         
-        r.headers['Authorization'] =  "bearer " + self.access_token       
+        r.headers['Authorization'] = "bearer " + self.access_token
         
         return r    
     
@@ -128,7 +137,7 @@ class UserAccessToken(_AccessToken):
       
         return time_diff.total_seconds() < 0
 
-    def renewTokenIfNecessary(self):
+    def renew_token_if_necessary(self):
       
         """
         Renews the access token if it about to or has expired.
@@ -155,8 +164,8 @@ class UserAccessToken(_AccessToken):
         URL     = 'https://api-oauth2.mendeley.com/oauth/token'      
       
         client_auth = requests.auth.HTTPBasicAuth(
-            config.Oauth2Creds.client_id,
-            config.Oauth2Creds.client_secret)
+            config.Oauth2Credentials.client_id,
+            config.Oauth2Credentials.client_secret)
         
         post_data = {"grant_type"   :   "refresh_token",
                      "refresh_token":   self.refresh_token}
@@ -166,7 +175,7 @@ class UserAccessToken(_AccessToken):
         if r.status_code != requests.codes.ok:
             raise Exception('TODO: Fix me, request failed ...')
       
-        self.populateTokenFromJSON(r.json())
+        self.populate_token_from_JSON(r.json())
       
         self.save()
       
@@ -244,7 +253,7 @@ class UserAccessToken(_AccessToken):
         #https://docs.python.org/2/library/pickle.html#pickling-and-unpickling-normal-class-instances
         #would involve using __setstate__
         if username is None:
-            du       = config.defaultUser
+            du       = config.DefaultUser
             username = du.username
             
         load_path = cls.get_file_path(username)
@@ -259,6 +268,148 @@ class UserAccessToken(_AccessToken):
         #TODO: allow for getting new access token if needed    
             
         return temp    
+
+#TODO: This will provide a URL for the user
+def _get_authorization_code_manually():
+    pass
+
+def _get_authorization_code_auto(username,password):
+    
+    """
+        
+    
+    Parameters:
+    -----------
+    username : str
+    
+    password : str
+        
+    """    
+    
+    URL = 'https://api-oauth2.mendeley.com/oauth/authorize'
+    
+    #STEP 1: Get form
+    #----------------------------------------------
+    payload = {
+        'client_id'     : config.Oauth2Credentials.client_id,
+        'redirect_uri'  : 'https://localhost', 
+        'scope'         : 'all',
+        'response_type' : 'code'}
+    r = requests.get(URL, params=payload)
+
+    if r.status_code != requests.codes.ok:
+      raise Exception('TODO: Fix me, request failed ...')
+        
+    #STEP 2: Submit form for user authorizing client use
+    #------------------------------------------------------
+    payload2 = {
+        'username' : username,
+        'password' : password}
+    r2 = requests.post(r.url,data=payload2,allow_redirects=False)    
+    
+    if r2.status_code != requests.codes.FOUND:
+      raise Exception('TODO: Fix me, request failed ...')  
+    
+    #STEP 3: Grab code from redirect URL
+    #----------------------------------------------
+    parsed_url = requests.utils.urlparse(r2.headers['location'])
+    
+    #TODO: Update with response from StackOverflow    
+    #instead of blindly grabbing the query
+    #query => 'code=value'
+    authorization_code = parsed_url.query[5:]
+    
+    user = UserInfo(username,password,authorization_code)    
+    
+    return user
+ 
+#TODO: Finish this ...
+def get_user_credentials_with_prompts(save=True):
+    pass
+
+ 
+def get_user_credentials_no_prompts(username, password, save=True):
+
+    """
+    This function returns an access token for accessing user information. It 
+    does so without requiring any user prompts. As such it requires the user
+    to enter their password into this function.    
+    
+    Parameters:
+    -----------
+    username : str
+        The user name as prompted by Mendeley. This is usually the email
+        address used to log into Mendeley.
+    password : str
+        The password associated with the account. This is currently only used 
+        in order to get the access token.
+        
+    Returns
+    -------
+    UserCredentials
+        This token can be used to request information from the user's account.
+    
+    """
+
+    code  = _get_authorization_code_auto(username, password)
+    token = trade_code_for_user_access_token(code)
+    
+    if save:
+        token.save()
+        
+    return token
+
+def trade_code_for_user_access_token(user):
+             
+    """
+    This method asks Mendeley for an access token given a user's code. This 
+    code comes from the user telling Mendeley that this client 
+    (identified by a Client ID) has permission to get information 
+    from the user's account.
+    
+    I had wanted to replace the user input with just the code. Once I received
+    the access token, I could then request the user's info. Unfortunately it
+    seems that the default user informaton, particularly the user's email is
+    no longer accessible unless the user has specified an email in 
+    their profile.
+    
+    Parameters:
+    -----------
+    user: UserInfo
+        This contains informaton about the user and can be obtained from:
+        request_authorization_code.
+
+    Returns:
+    --------
+    UserCredentials
+        This token can be used to request information from the user's account.
+        
+    See Also:
+    ---------
+        
+    
+    """
+    
+    URL     = 'https://api-oauth2.mendeley.com/oauth/token'
+    
+    #TODO: This may or may not actually be needed
+    headers = {'content-type': 'application/x-www-form-urlencoded'}
+    
+    payload = {
+        'grant_type'    : 'authorization_code',
+        'code'          : user.authorization_code,
+        'redirect_uri'  : config.Oauth2Credentials.redirect_url,
+        'client_secret' : config.Oauth2Credentials.client_secret,
+        'client_id'     : config.Oauth2Credentials.client_id,
+        } 
+
+    r = requests.post(URL,headers=headers,data=payload)
+
+    if r.status_code != requests.codes.ok:
+      raise Exception('TODO: Fix me, request failed ...')    
+    
+    return UserCredentials(r.json(),user)
+
             
 class UserInfo(object):
     
@@ -297,7 +448,7 @@ class UserInfo(object):
         return requests.auth.HTTPBasicAuth(self.username,self.password)
 
 
-class PublicAccessToken(_AccessToken):
+class PublicCredentials(_Credentials):
     
     """
     TODO: Fill this out    
@@ -343,7 +494,7 @@ class PublicAccessToken(_AccessToken):
         """
         #Called before request is sent
           
-        self.renewTokenIfNecessary()
+        self.renew_token_if_necessary()
         
         r.headers['Authorization'] =  "bearer " + self.access_token
         
@@ -380,13 +531,16 @@ class PublicAccessToken(_AccessToken):
         
         return final_save_path      
      
-    def renewTokenIfNecessary(self):
+    def renew_token_if_necessary(self):
       
         """
         Renews the access token if it about to or has expired.
+        
+        See Also:
+        __call__
         """
 
-        #TODO: It would be nice to have this in AccessToken
+        #TODO: It would be nice to have this in _Credentials
       
         if datetime.datetime.now() + self.RENEW_TIME > self.expires:
             json = self._make_request_for_token()
@@ -445,9 +599,9 @@ class PublicAccessToken(_AccessToken):
   
         payload = {
             'grant_type'    : 'client_credentials',
-            'redirect_uri'  : config.Oauth2Creds.redirect_url,
-            'client_secret' : config.Oauth2Creds.client_secret,
-            'client_id'     : config.Oauth2Creds.client_id,
+            'redirect_uri'  : config.Oauth2Credentials.redirect_url,
+            'client_secret' : config.Oauth2Credentials.client_secret,
+            'client_id'     : config.Oauth2Credentials.client_id,
             }   
   
         r = requests.post(URL,data=payload)
@@ -458,167 +612,34 @@ class PublicAccessToken(_AccessToken):
         return r.json()
 
 
-#TODO: This will provide a URL for the user
-def get_authorization_code_manually():
-    pass
-
-    
 
 
-def get_authorization_code_auto(username,password):
-    
-    """
-    Parameters:
-    -----------
-    username : str
-    
-    password : str
-        
-    """    
-    
-    URL = 'https://api-oauth2.mendeley.com/oauth/authorize'
-    
-    #STEP 1: Get form
-    #----------------------------------------------
-    payload = {
-        'client_id'     : config.Oauth2Creds.client_id, 
-        'redirect_uri'  : 'https://localhost', 
-        'scope'         : 'all',
-        'response_type' : 'code'}
-    r = requests.get(URL, params=payload)
-
-    if r.status_code != requests.codes.ok:
-      raise Exception('TODO: Fix me, request failed ...')
-        
-    #STEP 2: Submit form for user authorizing client use
-    #------------------------------------------------------
-    payload2 = {
-        'username' : username,
-        'password' : password}
-    r2 = requests.post(r.url,data=payload2,allow_redirects=False)    
-    
-    if r2.status_code != requests.codes.FOUND:
-      raise Exception('TODO: Fix me, request failed ...')  
-    
-    #STEP 3: Grab code from redirect URL
-    #----------------------------------------------
-    parsed_url = requests.utils.urlparse(r2.headers['location'])
-    
-    #TODO: Update with response from StackOverflow    
-    #instead of blindly grabbing the query
-    #query => 'code=value'
-    authorization_code = parsed_url.query[5:]
-    
-    user = UserInfo(username,password,authorization_code)    
-    
-    return user
- 
-#TODO: Finish this ...
-def get_user_access_token_with_prompts(save_token = True):
-    pass
-
- 
-def get_user_access_token_no_prompts(username,password,save_token = True):
+def _get_public_credentials():
 
     """
-    This function returns an access token for accessing user information. It 
-    does so without requiring any user prompts. As such it requires the user
-    to enter their password into this function.    
+    Get's credentials needed for making public requests. This is the 
+    authentication info needed for the client.
     
-    Parameters:
-    -----------
-    username : str
-        The user name as prompted by Mendeley. This is usually the email
-        address used to log into Mendeley.
-    password : str
-        The password associated with the account. This is currently only used 
-        in order to get the access token.
-        
-    Returns
-    -------
-    UserAccessToken
-        This token can be used to request information from the user's account.
+    In general it is not necessary to call this function directly. Instead one
+    should just call the Public Methods API Constructor.
+    
+    Returns:
+    --------
+    PublicCredentials
+    
+    See Also:
+    .api.PublicMethods
     
     """
-
-    code  = get_authorization_code_auto(username,password)
-    token = trade_code_for_user_access_token(code)
     
-    if save_token:
-        token.save()
-        
-    return token
-  
-
-
-        
-
-def get_public_credentials():
-
-    """
-        Get's credentials needed for making public requests. This
-        is the authentication info needed for the client.
-        
-        Returns:
-        --------
-        PublicAccessToken
-    """
-    
-    if PublicAccessToken.token_exists_on_disk():
-        return PublicAccessToken.load()
+    if PublicCredentials.token_exists_on_disk():
+        return PublicCredentials.load()
     else:
-        r = PublicAccessToken._make_request_for_token()
+        r = PublicCredentials._make_request_for_token()
         
-        pat = PublicAccessToken(r)    
+        pat = PublicCredentials(r)
     
         pat.save()    
     
         return pat
   
-def trade_code_for_user_access_token(user):
-             
-    """
-    
-    TODO: If everything is successful, the code itself should be sufficient
-    at this point. User information can be gathered from requests.
-
-    This method asks Mendeley for an access token given a code. This code comes
-    from the user telling Mendeley that this client (identified by a Client ID)
-    has permission to get information from the user.
-    
-    Parameters:
-    -----------
-    user: UserInfo
-        This contains informaton about the user and can be obtained from:
-        request_authorization_code.
-
-    Returns:
-    --------
-    UserAccessToken
-        This token can be used to request information from the user's account.
-        
-    See Also:
-    ---------
-        
-    
-    """
-    
-    URL     = 'https://api-oauth2.mendeley.com/oauth/token'
-    
-    #TODO: This may or may not actually be needed
-    headers = {'content-type': 'application/x-www-form-urlencoded'}
-    
-    payload = {
-        'grant_type'    : 'authorization_code',
-        'code'          : user.authorization_code,
-        'redirect_uri'  : config.Oauth2Creds.redirect_url,
-        'client_secret' : config.Oauth2Creds.client_secret,
-        'client_id'     : config.Oauth2Creds.client_id,
-        } 
-
-    r = requests.post(URL,headers=headers,data=payload)
-
-    if r.status_code != requests.codes.ok:
-      raise Exception('TODO: Fix me, request failed ...')    
-    
-    return UserAccessToken(r.json(),user)

@@ -1,19 +1,27 @@
 Mendeley Code for Python
 --------------------------
 
-This repo is meant to hold my Mendeley code for Python. The code is still just starting out. 
+This repo is meant to hold my Mendeley code for Python. I have the basic skeleton in place for making requests.
 
 Motivation
---------------------
+----------
 
-Mendeley is currently reworking a lot of aspects of their API, starting with a switch from OAuth 1 to OAuth 2. Other changes are promised in the near future. I'm not the biggest fan of the way `their API <https://github.com/Mendeley/mendeley-oapi-example>`_ is designed however and it doesn't support OAuth 2 (This might have changed recently).
+My focus is on developing scripting access to my Mendeley data. As a simple example, I might wish to know which pf my Mendeley entries are missing valid Pubmed IDs, and then remedy this by adding them. Doing this would help to ensure higher quality meta data for my entries. As another example, I might wish to know which of the references from a paper I am reading are in my library or not. By writing code we can make a query to the API for this information.
 
-The following is a rough layout of where I'd like to go with this code:
+Mendeley actually provides an example Python API, but I find it to be lacking. Important differences include:
 
-1. Finish implementation of all user specific methods. Public methods may be implemented as well.
+1) Documentation of all methods in the code. I'd rather be able to code with documentation in my IDE than needing to constantly check a website for details.
+2) Actual methods to call, rather than dynamically created methods. This can help a bit with code completion, as well as allow flexibility where needed.
+3) Responses are classes (optionally) with followup methods of their own.
+4) Perhaps most importantly, the goal is to provide more than just Python bindings to the Mendeley API. At the same time, the API should be fully exposed in its own set of modules, rather than interspersed with analysis code.
+
+Current Plans
+--------------
+
+1. Finish implementation of all user specific methods. Some public methods will be implemented as well as an example.
 2. Build test code!
 3. Build in local database support for managing documents.
-4. Add analysis functions that allow for data processing. As an example, perhaps we want to ensure that all documents have valid Pubmed IDs.
+4. Add analysis functions that allow for data processing.
 
 Getting Started
 ----------------------
@@ -22,15 +30,29 @@ Getting Started
 2. Run: **mendeley.auth.get_access_token(username:password)**
 3. Create an instance of **mendeley.api.UserMethods** and call its functions.
 
-JAH TODO: Provide code example.
+.. code:: python
 
+	#This only needs to be run once
+	from mendeley import auth, config
+	du  = config.DefaultUser #This can be skipped if you want to type the inputs in directly
+	auth.get_user_access_token_no_prompts(du.username,du.password)
+	
+	#Private Methods example
+	from mendeley import api as mapi
+	um  = mapi.UserMethods()
+	lib_ids = um.docs_get_library_ids()
+	
+	#Public Methods Example
+	pm = mapi.PublicMethods()
+	ta = pm.get_top_authors()
+	
 Contributing
-----------------------
+------------
 
 I would love to get help in moving this code forward. If you're interested feel free to send me an email about how to best move forward. Alternatively, you are always welcome to make pull requests. I'm currently not very set in my ways and welcome any suggestions as to how things should be structured differently.
 
 Requirements
-----------------------
+------------
 
 The code relies on the **Requests** package.
 
