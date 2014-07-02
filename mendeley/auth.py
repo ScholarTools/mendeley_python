@@ -39,6 +39,13 @@ class _Credentials(AuthBase):
     
     @staticmethod
     def get_save_base_path(create_folder_if_no_exist = False):
+        """
+        The API credentials are stored at:
+        <repo_base_path>/data/credentials
+        
+        NOTE: Anything in the data folder is omitted from versioning using
+        .gitignore
+        """
         #http://stackoverflow.com/questions/50499/in-python-how-do-i-get-the-path-and-name-of-the-file-that-is-currently-executin/50905#50905
         package_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))   
         
@@ -47,7 +54,7 @@ class _Credentials(AuthBase):
         save_folder_path = os.path.join(root_path, 'data', 'credentials')
 
         if create_folder_if_no_exist and not os.path.exists(save_folder_path):
-            os.mkdir(save_folder_path)  
+            os.makedirs(save_folder_path)  
             
         return save_folder_path
 
@@ -328,7 +335,7 @@ def get_user_credentials_with_prompts(save=True):
     pass
 
  
-def get_user_credentials_no_prompts(username, password, save=True):
+def get_user_credentials_no_prompts(username=None, password=None, save=True):
 
     """
     This function returns an access token for accessing user information. It 
@@ -337,12 +344,15 @@ def get_user_credentials_no_prompts(username, password, save=True):
     
     Parameters:
     -----------
-    username : str
+    username : str (default None)
         The user name as prompted by Mendeley. This is usually the email
         address used to log into Mendeley.
     password : str
         The password associated with the account. This is currently only used 
         in order to get the access token.
+    save : boolean (default True)
+        If true the credentials will be saved locally (to disk) for reuse
+        at later times.
         
     Returns
     -------
@@ -350,6 +360,14 @@ def get_user_credentials_no_prompts(username, password, save=True):
         This token can be used to request information from the user's account.
     
     """
+    
+    if username is None:
+        du = config.DefaultUser
+        username = du.username
+        password = du.password
+        
+        #du  = config.DefaultUser
+#auth.get_user_access_token_no_prompts(du.username,du.password)
 
     code  = _get_authorization_code_auto(username, password)
     token = trade_code_for_user_access_token(code)

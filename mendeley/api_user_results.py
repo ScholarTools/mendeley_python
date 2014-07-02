@@ -43,24 +43,7 @@ def _get_save_base_path(api_object, create_folder_if_no_exist=True):
 
     pass
 
-class TopAuthor(object):
-    
-    """
-    See more information on this object at:
-    @DOC: http://apidocs.mendeley.com/home/public-resources/stats-authors
-    
-    I've posted some questions there which may or may not ever get answered :/
-    
-    See Also:
-    .api.PublicMethods.get_top_authors
-    """
-    
-    #TODO: Build rank into class, in case things are shuffled ...
-    def __init__(self,json):
-        self.name  = json['name']
-        self.value = json['value']
-        #?? - do we want to know the discipline as well????
-        #This would require passing this in based on the request
+
         
 
 class CatalogSearchResults(object):
@@ -86,15 +69,7 @@ class UserDocumentEntry(object):
 class DocumentEntry(object):
     pass
         
-class PublicDocumentEntry(object):
-    
-    @staticmethod
-    def createObject(json_data):
-        doc_type = json_data['type']
-        if doc_type is 'Journal Article':
-            return PublicJournalArticle(json_data)
-        else:
-            raise Exception('Unhandled document type: %s' % doc_type)
+
         
 
 class IDs(object):
@@ -172,28 +147,7 @@ class JournalArticle(object):
 class UserJournalArticle():
     pass
                 
-class PublicJournalArticle(JournalArticle):
-    
-    def __init__(self,json_data):
-        super(self.__class__,self).__init__(json_data)
 
-        def aj(field,json=json_data): return assign_json(json,field)
-                    
-        if self.tags is not None:
-            self.tags_count = json_data['tags_counts']
-        else:
-            self.tags_count = None
-        
-        self.oa_journal = json_data['oa_journal']
-        self.readership_stats = DocReadershipStats(json_data['stats'])
-        self.unassigned_json = get_unnasigned_json(json_data,self)
-        
-        #TODO:
-        #self.categories = aj('categories') #This should be a class
-        #Example:
-        #[35, 462, 23, 455, 25, 43, 27, 193, 331, 331]
-        #
-     
  
 class DocReadershipStats(object):
     
@@ -302,39 +256,68 @@ class DisciplineReadershipStats(object):
         return self.__repr__()
 
         
-class LibraryIDs(object):
+class LibraryIDsContainer(object):
     
     """
     
     Response from:
     http://apidocs.mendeley.com/home/user-specific-methods/user-library
+    AND
+    .api.UserMethods.docs_get_library_ids    
     
     Attributes:
     -----------
-    TODO: Finish this ...
-    
+    created_date : datetime
+    document_ids : list
+    document_versions : list
+    n_entries_total : number
+    current_page : number
+    n_pages : number
+    items_per_page : number
+    is_all_ids : bool
+        Indicates that the object contains all ids.
     """
     
     def __init__(self, json, user_api):
         self.created_date      = datetime.now()
         self.document_ids      = [x['id'] for x in json['documents']]
         self.document_versions = [x['version'] for x in json['documents']]       
-        self.total_results     = json['total_results']
+        self.n_entries_in_lib   = json['total_results']
         self.current_page      = json['current_page']
-        self.total_pages       = json['total_pages']
+        self.n_pages       = json['total_pages']
         self.items_per_page    = json['items_per_page']
         self._user_api         = user_api   
         #TODO: Do I want a 'is full' attribute that indicates all values have been saved????
-      
+
+    @property    
+    def is_all_ids(self):
+        return self.items_per_page >= self.n_entries_in_lib  
+    
     def __repr__(self):
         return \
         '     created_date: %s\n' % (str(self.created_date)) + \
-        '    total_results: %d\n' % (self.total_results)     + \
+        ' n_entries_in_lib: %d\n' % (self.n_entries_in_lib)     + \
         '     current_page: %d\n' % (self.current_page)      + \
-        '      total_pages: %d\n' % (self.total_pages)       + \
+        '          n_pages: %d\n' % (self.n_pages)       + \
         '   items_per_page: %d\n' % (self.items_per_page)    + \
         '     document_ids: [1 x %d] List\n' % (len(self.document_ids)) + \
-        'document_versions: [1 x %d] List\n' % (len(self.document_versions))
+        'document_versions: [1 x %d] List\n' % (len(self.document_versions)) + \
+        '       is_all_ids: %s\n' % (self.is_all_ids)
+        
+    def get_doc_details(self,index):
+
+        """
+
+        Parameters:
+        -----------
+        index: 
+            0 based. 
+        """        
+        
+        doc_method = self._user_api.docs_get_details 
+        doc_id = self.document_ids[index]
+        
+        return doc_method(doc_id)     
         
     def save(self):
         """

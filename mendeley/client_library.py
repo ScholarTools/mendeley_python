@@ -16,9 +16,14 @@ https://github.com/Mendeley/mendeley-api-python-example/blob/master/mendeley-exa
 """
 
 class UserLibrary():
-    pass
-
     #This is the one I would like to interface with DJANGO
+    
+    def __init__(self, user_name=None):
+        #On load, sync
+        pass
+
+    def sync(self):
+        pass
 
 class UserClient():
     
@@ -28,17 +33,29 @@ class UserClient():
     library
     public_api?
     
+    I'm not so sure that I am going to keep this classs. I might just go
+    with the library.    
+    
     """    
     
     def __init__(self, user_name=None):
-        pass
+      
+        if user_name is None:
+            #Try default user, if no default user throw error
+            pass
+        else:
+            pass
     
 
         #self
     
-    def get_credentials():
+    def _get_credentials():
         """
         If for some reason the user name is not recognized or available,
         provide prompts that help remedy this problem
         """
         pass
+    
+    
+    
+    

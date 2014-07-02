@@ -3,14 +3,13 @@
 
 """
 
-from mendeley import auth, config
+from mendeley import auth
 from mendeley import api as mapi
 
 
 #1 Retrieval of a user token
 #-----------------------------
-#du  = config.DefaultUser
-#auth.get_user_access_token_no_prompts(du.username,du.password)
+ut = auth.get_user_credentials_no_prompts()
 
 #2 Loading a token from disk
 #------------------------------

@@ -15,12 +15,14 @@ from . import auth
 import requests
 import pdb
 from . import api_user_results as uresults
+from . import api_public_results as presults
 
 class _APIMethods(object):
     
     """
     This is a shared superclass for both the public and private API classes.
     """
+    
     BASE_URL = 'https://api-oauth2.mendeley.com/oapi/' 
 
     #TODO: Have something that indicates that access_token is required
@@ -29,26 +31,37 @@ class _APIMethods(object):
     @staticmethod
     def fix_url_input(input_data):
         
+        """
+            This is basically a call to encode an input for GET requests so
+            that they are valid parameters or values for the URL
+        """        
+        
         if isinstance(input_data, basestring):
             return urllib2.quote(input_data,'')
         else:
             return urllib2.quote(str(input_data),'')
         
 
-    def make_get_request(self, url, params = None, good_status = 200):
+    def make_get_request(self, url, object_fh, params = None, good_status = 200, return_type = 'object'):
                 
         """
 
         Parameters:
         -----------          
         url : str
-            URL to go to
+            URL to make request from.
+        object_fh: function handle
+            
         params : dict (default {})
             Dictionary of paraemters to place in the GET query. Values may be
             numbers or strings.
         good_status : int (default 200)
             The status to check for as to whether or not the request 
             was successful.
+        return_type : {'object','json','raw'}
+            object - indicates that the result class object should be created.
+                This is the slowest option but provides the most functionality.
+            json   - 
             
         See Also:
         ---------
@@ -74,8 +87,17 @@ class _APIMethods(object):
         if r.status_code != good_status:
             print(r.text)
             print('')
-            raise Exception('Call failed with status: %d' % (r.status_code)) #TODO: This should be improved
-                    
+            #TODO: This should be improved
+            raise Exception('Call failed with status: %d' % (r.status_code)) 
+        
+        if return_type is 'object':
+            return object_fh(r.json(),self)
+        elif return_type is 'json':
+            return r.json()
+        elif return_type is 'raw':
+            return r.text
+        #TODO: Add on error if no match was made
+            
         return r
 
 
@@ -84,7 +106,11 @@ class PublicMethods(_APIMethods):
     """
     This class exposes the public methods of the API.
     
-    TOOD Example:
+    Example:
+    --------
+    from mendeley import api
+    pm = api.PublicMethods()
+    ta = pm.get_top_authors()
     """
     
     def __init__(self):
@@ -107,6 +133,10 @@ class PublicMethods(_APIMethods):
         discipline_id : int, str (default None)
             Discipline ID is an enumeration of disciplines. This list comes
             from the method get_disciplines
+            
+        Returns:
+        --------
+        list of mendeley.api_user_results.TopAuthor
         """        
         
         url = self.BASE_URL + 'stats/authors/'
@@ -118,7 +148,7 @@ class PublicMethods(_APIMethods):
 
         #NOTE: We might not get JSON ... 
         temp_json = r.json()
-        return [uresults.TopAuthor(x) for x in temp_json]
+        return [presults.TopAuthor(x) for x in temp_json]
         
     """
     ===========================================================================
@@ -212,6 +242,16 @@ class UserMethods(_APIMethods):
     """
     This class exposes API calls that are specific to a user.
         
+    Example:
+    --------
+    #TODO: Explain how to get user credentials
+    
+    #The example below assumes the user credentials have already been acquired
+    #and thata default user is specified in the configuration file.
+    
+    from mendeley import api
+    um = api.UserMethods()
+    lib_ids = um.docs_get_library_ids(items=100)
     
     """
     
@@ -220,16 +260,16 @@ class UserMethods(_APIMethods):
     def __init__(self, username = None):
         """
         
+        Parameters:
+        -----------
+        username : str (default None)
+            If no input is specified the default user will be used.        
         """
 
+        #TODO: Could allow changing default return type
+
         self.access_token = auth.UserCredentials.load(username)
-        
-        #Other potential properties:
-        #- return raw, or more generically, return type, if raw then
-        #the raw text is returned, alternatively we could just allow returning
-        #json
-        #- 
-           
+                   
     @property
     def username(self):
         return self.access_token.username
@@ -239,13 +279,20 @@ class UserMethods(_APIMethods):
                                 Stats Methods
     ===========================================================================
     """
-    def stats_authors():
+    def stats_authors(self):
         """
         Returns list of top 5 authors in user library.
         
         @DOC: http://apidocs.mendeley.com/home/user-specific-methods/user-authors-stats 
         """
-        pass
+
+        url = self.BASE_URL + 'library/authors/'
+    
+        params = {}
+
+        r = self.make_get_request(url,params)    
+    
+        return uresults.LibraryIDs(r.json(),self)
         
     
     def stats_tags():
@@ -261,7 +308,7 @@ class UserMethods(_APIMethods):
     """
 
 
-    def docs_get_library_ids(self, page=0, items=20, get_all=False):
+    def docs_get_library_ids(self, page=0, items=20, get_all=False, **kwargs):
         """
         Returns a set of IDs that the user has in their library. These ID's 
         uniquely identify library entries.          
@@ -274,6 +321,11 @@ class UserMethods(_APIMethods):
             Maximum # of items per page to return.
         get_all : logical (default False)
             If true this returns all ids in the library.
+            
+        See Also:
+        ---------
+        .api._APIMethods.make_get_request
+        .api_user_results.LibraryIDsContainer
 
         Returns:
         @DOC: http://apidocs.mendeley.com/home/user-specific-methods/user-library
@@ -289,20 +341,31 @@ class UserMethods(_APIMethods):
             'page' :  page,
             'items':  items}
 
-        r = self.make_get_request(url,params)    
-    
-        return uresults.LibraryIDs(r.json(),self)
-   
+        object_fh = uresults.LibraryIDsContainer;
+        return self.make_get_request(url,object_fh,params)    
+       
     def docs_get_user_authored():
         """
         @DOC: http://apidocs.mendeley.com/home/user-specific-methods/user-authored
         """
         pass
     
-    def docs_get_details():
+    def docs_get_details(self, id, **kwargs):
         """
         @DOC: http://apidocs.mendeley.com/home/user-specific-methods/user-library-document-details
         """
+        
+        url = self.BASE_URL + 'library/documents/%s/' % (id)    
+        
+        params = {}
+        
+        import pdb
+        pdb.set_trace()
+        
+        r = self.make_get_request(url,params)  
+        
+        return r.json()
+        
         pass
     
     def docs_create_new():
@@ -369,7 +432,7 @@ class UserMethods(_APIMethods):
         '   stats_tags\n' + \
         '   stats_publications\n' + \
         'Document Methods:\n' + \
-        '   docs_get_library_ids\n' + \
+        '   docs_get_library_ids - DONE\n' + \
         '   docs_get_user_authored\n' + \
         '   docs_get_details\n' + \
         '   docs_create_new\n' + \
