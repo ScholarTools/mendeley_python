@@ -72,13 +72,13 @@ class DocumentEntry(object):
 
         
 
-class IDs(object):
+class EntryIDs(object):
     
     def __init__(self,json_data):
         
         self.doi = assign_json(json_data,'doi')
 
-class JournalIDs(IDs):
+class JournalIDs(EntryIDs):
     
     def __init__(self,json_data):
 
@@ -256,7 +256,7 @@ class DisciplineReadershipStats(object):
         return self.__repr__()
 
         
-class LibraryIDsContainer(object):
+class LibraryIDs(object):
     
     """
     

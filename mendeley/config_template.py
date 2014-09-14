@@ -17,5 +17,5 @@ class Oauth2Creds(object):
     
 #Optional    
 class defaultUser(object):
-    username = ''
+    user_name = ''
     password = ''

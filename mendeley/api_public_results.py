@@ -5,13 +5,13 @@ Created on Wed Jun 25 09:08:55 2014
 @author: jameshokanson
 """
 
-class PublicJournalArticle(JournalArticle):
+class PublicJournalArticle(object):
     
     """
     THIS IS A WORK IN PROGRESS
     """
     def __init__(self,json_data):
-        super(self.__class__,self).__init__(json_data)
+        #super(self.__class__,self).__init__(json_data)
 
         def aj(field,json=json_data): return assign_json(json,field)
                     

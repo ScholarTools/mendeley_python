@@ -13,15 +13,19 @@ not as methods of the classes
 TODO: Tokens should be singletons by name
 
 """
-
-import datetime
-from . import config
-import pickle
-import os
-import inspect
-
 import requests
 from requests.auth import AuthBase
+
+import datetime
+
+import pickle
+import os
+
+
+from . import utils
+from . import config
+
+
 
 #http://apidocs.mendeley.com/home/authentication
 
@@ -46,17 +50,8 @@ class _Credentials(AuthBase):
         NOTE: Anything in the data folder is omitted from versioning using
         .gitignore
         """
-        #http://stackoverflow.com/questions/50499/in-python-how-do-i-get-the-path-and-name-of-the-file-that-is-currently-executin/50905#50905
-        package_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))   
         
-        #Go up to root, then down to specific save path
-        root_path        = os.path.split(package_path)[0]
-        save_folder_path = os.path.join(root_path, 'data', 'credentials')
-
-        if create_folder_if_no_exist and not os.path.exists(save_folder_path):
-            os.makedirs(save_folder_path)  
-            
-        return save_folder_path
+        return utils.get_save_root(['credentials'],create_folder_if_no_exist)
 
 class UserCredentials(_Credentials):
     
@@ -65,15 +60,15 @@ class UserCredentials(_Credentials):
     access user specific information. This class should normally be retrieved
     by:
     
-    1) Calling UserCredentials.load(username)
-    2) Calling get_access_token(username,password)
+    1) Calling UserCredentials.load(user_name)
+    2) Calling get_access_token(user_name,password)
     
     Attributes:
     -------------------------------------------
     version : str
         The current version of the access token. Since these are saved to disk
         this value is retained
-    username : str
+    user_name : str
     access_token : str
         The actual access token. This might be renamed ...
     token_type : str
@@ -91,7 +86,7 @@ class UserCredentials(_Credentials):
     
     def __init__(self, json, user_info):
         self.version  = 1
-        self.username = user_info.username
+        self.user_name = user_info.user_name
         
         self.populate_token_from_JSON(json)
              
@@ -109,7 +104,7 @@ class UserCredentials(_Credentials):
         #TODO: Make generic and make a call to the generic function (low priority)
         return \
             '      version : %d\n' % (self.version)         + \
-            '     username : %s\n' % (self.username)        + \
+            '     user_name : %s\n' % (self.user_name)        + \
             '  acess_token : %s\n' % (self.access_token)    + \
             '   token_type : %s\n' % (self.token_type)      + \
             'refresh_token : %s\n' % (self.refresh_token)   + \
@@ -147,9 +142,11 @@ class UserCredentials(_Credentials):
     def renew_token_if_necessary(self):
       
         """
-        Renews the access token if it about to or has expired.
-      
-      
+        Renews the access token if it has expired or is about to expire.
+
+        Returns:
+        --------
+        None
         """
       
         if datetime.datetime.now() + self.RENEW_TIME > self.expires:
@@ -161,7 +158,6 @@ class UserCredentials(_Credentials):
     def renew_token(self):
       
         """
-    
         Renews the access token so that requests can be made for user data.      
       
         NOTE: Apparently the refresh_token can be used even after it has expired.
@@ -189,34 +185,25 @@ class UserCredentials(_Credentials):
         return None
       
     @classmethod
-    def get_file_path(cls,username,create_folder_if_no_exist = False):
+    def get_file_path(cls,user_name,create_folder_if_no_exist = False):
 
         """     
         Provides a consistent path to where this object can be saved and loaded
-        from. Currently this path is located in a "user_auth" directory 
-        that is at the same level as the "mendeley" package.  
-        
-        repo_base:
-            - mendeley  - Mendeley package
-            - user_auth - Directory for storing access info. This directory
-                          is excluded from commits by the .gitignore file.
+        from.
         
         Parameters:
         -----------
-        #TODO
+        user_name: str
+            See class initialization for definition.
         
         Returns:
         -------
         str
-                
         
         """
 
-        #Create a valid save name from the username (email)
-        #----------------------------------------------------------------------
-        #Good enough for now ... 
-        #Removes periods from email addresses, leaves other characters
-        save_name        = username.replace('.','') + '.pickle'
+
+        save_name = utils.user_name_to_file_name(user_name) + '.pickle'
 
         save_folder_path = cls.get_save_base_path(create_folder_if_no_exist)
         
@@ -229,41 +216,39 @@ class UserCredentials(_Credentials):
         """
         Saves the class instance to disk.
         """
-        save_path = self.get_file_path(self.username, create_folder_if_no_exist = True)
+        save_path = self.get_file_path(self.user_name, create_folder_if_no_exist = True)
         with open(save_path, "wb") as f:
             pickle.dump(self,f)
         return None
     
     @staticmethod
-    def does_token_exist(username):
+    def does_token_exist(user_name):
         pass
         #TODO: Allow user to see if the token exists
     
     @classmethod
-    def load(cls, username = None):
+    def load(cls, user_name = None):
         
         """
         Loads the class instance from disk.        
         
         Parameters
         ----------
-        username : str
-            If the username is not passed in then a default user should be
+        user_name : str
+            If the user_name is not passed in then a default user should be
             defined in the config file.
         """
-
-        
 
         #TODO: Do an explicit test for file existence (or catch and test)
         
         #TODO: This should have version lookup
         #https://docs.python.org/2/library/pickle.html#pickling-and-unpickling-normal-class-instances
         #would involve using __setstate__
-        if username is None:
+        if user_name is None:
             du       = config.DefaultUser
-            username = du.username
+            user_name = du.user_name
             
-        load_path = cls.get_file_path(username)
+        load_path = cls.get_file_path(user_name)
         
         if not os.path.isfile(load_path):
             raise Exception('Requested token does not exist')
@@ -280,14 +265,14 @@ class UserCredentials(_Credentials):
 def _get_authorization_code_manually():
     pass
 
-def _get_authorization_code_auto(username,password):
+def _get_authorization_code_auto(user_name,password):
     
     """
         
     
     Parameters:
     -----------
-    username : str
+    user_name : str
     
     password : str
         
@@ -305,17 +290,17 @@ def _get_authorization_code_auto(username,password):
     r = requests.get(URL, params=payload)
 
     if r.status_code != requests.codes.ok:
-      raise Exception('TODO: Fix me, request failed ...')
+        raise Exception('TODO: Fix me, request failed ...')
         
     #STEP 2: Submit form for user authorizing client use
     #------------------------------------------------------
     payload2 = {
-        'username' : username,
+        'username' : user_name,
         'password' : password}
     r2 = requests.post(r.url,data=payload2,allow_redirects=False)    
     
     if r2.status_code != requests.codes.FOUND:
-      raise Exception('TODO: Fix me, request failed ...')  
+        raise Exception('TODO: Fix me, request failed ...')  
     
     #STEP 3: Grab code from redirect URL
     #----------------------------------------------
@@ -326,7 +311,7 @@ def _get_authorization_code_auto(username,password):
     #query => 'code=value'
     authorization_code = parsed_url.query[5:]
     
-    user = UserInfo(username,password,authorization_code)    
+    user = UserInfo(user_name,password,authorization_code)    
     
     return user
  
@@ -335,7 +320,7 @@ def get_user_credentials_with_prompts(save=True):
     pass
 
  
-def get_user_credentials_no_prompts(username=None, password=None, save=True):
+def get_user_credentials_no_prompts(user_name=None, password=None, save=True):
 
     """
     This function returns an access token for accessing user information. It 
@@ -344,7 +329,7 @@ def get_user_credentials_no_prompts(username=None, password=None, save=True):
     
     Parameters:
     -----------
-    username : str (default None)
+    user_name : str (default None)
         The user name as prompted by Mendeley. This is usually the email
         address used to log into Mendeley.
     password : str
@@ -361,15 +346,15 @@ def get_user_credentials_no_prompts(username=None, password=None, save=True):
     
     """
     
-    if username is None:
+    if user_name is None:
         du = config.DefaultUser
-        username = du.username
+        user_name = du.user_name
         password = du.password
         
         #du  = config.DefaultUser
-#auth.get_user_access_token_no_prompts(du.username,du.password)
+#auth.get_user_access_token_no_prompts(du.user_name,du.password)
 
-    code  = _get_authorization_code_auto(username, password)
+    code  = _get_authorization_code_auto(user_name, password)
     token = trade_code_for_user_access_token(code)
     
     if save:
@@ -445,8 +430,8 @@ class UserInfo(object):
     
     Attributes:
     ----------------------------------------
-    username : str
-        The username is actually an email address.
+    user_name : str
+        The user_name is actually an email address.
     password : str
         The user's password.
     authorization_code : str
@@ -454,8 +439,8 @@ class UserInfo(object):
         client to have access to the user's account.
     
     """
-    def __init__(self,username,password,authorization_code):
-        self.username           = username
+    def __init__(self,user_name,password,authorization_code):
+        self.user_name           = user_name
         self.password           = password
         self.authorization_code = authorization_code
         
@@ -463,7 +448,7 @@ class UserInfo(object):
         """
         This turned out not to be needed. I'm leaving it in for now.
         """
-        return requests.auth.HTTPBasicAuth(self.username,self.password)
+        return requests.auth.HTTPBasicAuth(self.user_name,self.password)
 
 
 class PublicCredentials(_Credentials):

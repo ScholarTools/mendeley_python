@@ -20,7 +20,7 @@ ut = auth.get_user_credentials_no_prompts()
 #------------------------------
 um  = mapi.UserMethods()
 #wtf = um.profile_get_info()
-wtf = um.docs_get_library_ids(get_all=True)
+#wtf = um.docs_get_library_ids(get_all=True)
 
 
 

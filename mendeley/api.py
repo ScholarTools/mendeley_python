@@ -257,22 +257,22 @@ class UserMethods(_APIMethods):
     
     BASE_URL = 'https://api-oauth2.mendeley.com/oapi/'    
     
-    def __init__(self, username = None):
+    def __init__(self, user_name = None):
         """
         
         Parameters:
         -----------
-        username : str (default None)
+        user_name : str (default None)
             If no input is specified the default user will be used.        
         """
 
         #TODO: Could allow changing default return type
 
-        self.access_token = auth.UserCredentials.load(username)
+        self.access_token = auth.UserCredentials.load(user_name)
                    
     @property
-    def username(self):
-        return self.access_token.username
+    def user_name(self):
+        return self.access_token.user_name
 
     """
     ===========================================================================
@@ -333,7 +333,7 @@ class UserMethods(_APIMethods):
 
         if get_all is True:
             temp = self.docs_get_library_ids(page=0,items=1)
-            return self.docs_get_library_ids(page=0,items=temp.total_results)
+            return self.docs_get_library_ids(page=0,items=temp.n_entries_in_lib)
     
         url = self.BASE_URL + 'library/'
     
@@ -341,7 +341,7 @@ class UserMethods(_APIMethods):
             'page' :  page,
             'items':  items}
 
-        object_fh = uresults.LibraryIDsContainer;
+        object_fh = uresults.LibraryIDs;
         return self.make_get_request(url,object_fh,params)    
        
     def docs_get_user_authored():
