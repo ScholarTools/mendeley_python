@@ -6,9 +6,9 @@ This repo is meant to hold my Mendeley code for Python. I have the basic skeleto
 Motivation
 ----------
 
-My focus is on developing scripting access to my Mendeley data. As a simple example, I might wish to know which pf my Mendeley entries are missing valid Pubmed IDs, and then remedy this by adding them. Doing this would help to ensure higher quality meta data for my entries. As another example, I might wish to know which of the references from a paper I am reading are in my library or not. By writing code we can make a query to the API for this information.
+My focus is on developing scripting access to my Mendeley data. As a simple example, I might wish to know which of my Mendeley entries are missing valid Pubmed IDs, and then remedy this by adding them. Doing this would help to ensure higher quality meta data for my entries. As another example, I might wish to know which of the references from a paper I am reading are in my library or not. By writing code we can make a query to the API for this information.
 
-Mendeley actually provides an example Python API, but I find it to be lacking. Important differences include:
+Mendeley actually provides an example Python API (https://github.com/Mendeley/mendeley-python-sdk), but I find it to be lacking. Important differences include:
 
 1) Documentation of all methods in the code. I'd rather be able to code with documentation in my IDE than needing to constantly check a website for details.
 2) Actual methods to call, rather than dynamically created methods. This can help a bit with code completion, as well as allow flexibility where needed.
