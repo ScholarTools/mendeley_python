@@ -10,7 +10,15 @@ http://apidocs.mendeley.com/home/user-specific-methods
 
 """
 
-import urllib2
+import sys
+
+PY2 = int(sys.version[0]) == 2
+
+if PY2:
+    from urllib2 import quote as urllib_quote
+else:
+    from urllib.parse import quote as urllib_quote
+
 from . import auth
 import requests
 import pdb
@@ -23,7 +31,7 @@ class _APIMethods(object):
     This is a shared superclass for both the public and private API classes.
     """
     
-    BASE_URL = 'https://api-oauth2.mendeley.com/oapi/' 
+    BASE_URL = 'https://api.mendeley.com' 
 
     #TODO: Have something that indicates that access_token is required
     #for subclasses to have ...
@@ -34,12 +42,18 @@ class _APIMethods(object):
         """
             This is basically a call to encode an input for GET requests so
             that they are valid parameters or values for the URL
+            
+            Parameters
+            ----------
+            input_data
         """        
         
-        if isinstance(input_data, basestring):
-            return urllib2.quote(input_data,'')
-        else:
-            return urllib2.quote(str(input_data),'')
+        return urllib_quote(input_data,'')
+        #TODO: Not sure what this code was doing, need to test Python 2 again
+#        if isinstance(input_data, basestring):
+#            return urllib_quote(input_data,'')
+#        else:
+#            return urllib_quote(str(input_data),'')
         
 
     def make_get_request(self, url, object_fh, params = None, good_status = 200, return_type = 'object'):
@@ -72,13 +86,13 @@ class _APIMethods(object):
         if params is None:
             params = {}
         else:
-            params = dict((k, v) for k, v in params.iteritems() if v) 
+            if PY2:
+                params = dict((k, v) for k, v in params.iteritems() if v)
+            else:
+                params = dict((k, v) for k, v in params.items() if v)
         
-        #TODO: I will probably add on variable returns types - raw json or 
-        # the parsed object 
-        #        
-        
-            
+        #TODO: Create a session object and work off of that
+                    
         #NOTE: We make authorization go through the access token. The request
         #will call the access_token prior to sending the request. Specifically
         #the __call__ method is called.
@@ -90,13 +104,15 @@ class _APIMethods(object):
             #TODO: This should be improved
             raise Exception('Call failed with status: %d' % (r.status_code)) 
         
+        
         if return_type is 'object':
             return object_fh(r.json(),self)
         elif return_type is 'json':
             return r.json()
         elif return_type is 'raw':
             return r.text
-        #TODO: Add on error if no match was made
+        else:
+            raise Exception('No match found for return type')
             
         return r
 
@@ -254,9 +270,10 @@ class UserMethods(_APIMethods):
     lib_ids = um.docs_get_library_ids(items=100)
     
     """
+        
     
-    BASE_URL = 'https://api-oauth2.mendeley.com/oapi/'    
-    
+        
+        
     def __init__(self, user_name = None):
         """
         
@@ -266,10 +283,72 @@ class UserMethods(_APIMethods):
             If no input is specified the default user will be used.        
         """
 
-        #TODO: Could allow changing default return type
+        #TODO: Could allow changing default return type for the methods
+        #i.e. from an object to the raw json
 
         self.access_token = auth.UserCredentials.load(user_name)
-                   
+    
+
+    #New Code
+    #=====================================================================
+    def profile_get_info(self, profile_id = 'me'):
+        """
+        
+        TODO: This may no longer be specific to the user. We should
+        write 2 methods, 1 for public and 1 for user
+        
+        Returns information about a user.
+        
+        http://dev.mendeley.com/methods/#profiles
+        
+        Parameters
+        ----------
+        profile_id : string (default 'me')
+            The string 'me' can be used to request information about the
+            user whose access token we are using. A numeric value can be used
+            to get someone else's contact info.        
+        """
+        
+        url = self.BASE_URL + '/profiles/' + (profile_id)
+            
+        params = {}
+
+        return self.make_get_request(url,uresults.ProfileInfo,params)    
+    
+    def docs_get_details(self):
+        """
+
+        Parameters
+        ----------
+        view
+            - 'bib'
+            - 'client'
+            - 'tags'
+            - 'patent'
+            - 'all'
+        profile_id
+        group_id
+        modified_since
+        deleted_since
+        limit : string or int (default 20)
+            Largest allowable value is 500
+        order
+        sort
+
+        
+        """
+        url = self.BASE_URL + '/documents/'
+            
+        params = {}
+
+        return self.make_get_request(url,uresults.get_document_set,params)   
+
+
+
+    #Old Code
+    #=====================================================================
+
+               
     @property
     def user_name(self):
         return self.access_token.user_name
@@ -350,23 +429,23 @@ class UserMethods(_APIMethods):
         """
         pass
     
-    def docs_get_details(self, id, **kwargs):
-        """
-        @DOC: http://apidocs.mendeley.com/home/user-specific-methods/user-library-document-details
-        """
-        
-        url = self.BASE_URL + 'library/documents/%s/' % (id)    
-        
-        params = {}
-        
-        import pdb
-        pdb.set_trace()
-        
-        r = self.make_get_request(url,params)  
-        
-        return r.json()
-        
-        pass
+#    def docs_get_details(self, id, **kwargs):
+#        """
+#        @DOC: http://apidocs.mendeley.com/home/user-specific-methods/user-library-document-details
+#        """
+#        
+#        url = self.BASE_URL + 'library/documents/%s/' % (id)    
+#        
+#        params = {}
+#        
+#        import pdb
+#        pdb.set_trace()
+#        
+#        r = self.make_get_request(url,params)  
+#        
+#        return r.json()
+#        
+#        pass
     
     def docs_create_new():
         """
@@ -398,31 +477,7 @@ class UserMethods(_APIMethods):
     ===========================================================================
     """
     
-    def profile_get_info(self, profile_id = 'me', section=None, subsection=None):
-        """
-        Returns information about a user.
-        
-        Parameters:
-        -----------
-        profile_id : int or str (default 'me')
-            The string 'me' can be used to request information about the
-            user whose access token we are using. A numeric value can be used
-            to get someone else's contact info.
-        section : {'main','awards','cv','contact'} (optional)
-        
-                
-        
-        """
-        
-        url = self.BASE_URL + 'profiles/info/%s/' % (profile_id)
-    
-        params = {
-            'section'   :  section,
-            'subsection':  subsection}
 
-        r = self.make_get_request(url,params)    
-    
-        return uresults.ProfileInfo(r.json())
      
     def __repr__(self):
         #TODO: Add on current user ...

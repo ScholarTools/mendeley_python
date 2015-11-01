@@ -9,7 +9,9 @@ from mendeley import api as mapi
 
 #1 Retrieval of a user token
 #-----------------------------
-ut = auth.get_user_credentials_no_prompts()
+#I've rewritten UserMethods to call this automatically
+#
+#   ut = auth.get_user_credentials_no_prompts()
 
 #2 Loading a token from disk
 #------------------------------
@@ -19,7 +21,10 @@ ut = auth.get_user_credentials_no_prompts()
 #3 Making a function call
 #------------------------------
 um  = mapi.UserMethods()
-#wtf = um.profile_get_info()
+wtf = um.docs_get_details()
+import pdb
+pdb.set_trace()
+wtf = um.profile_get_info()
 #wtf = um.docs_get_library_ids(get_all=True)
 
 

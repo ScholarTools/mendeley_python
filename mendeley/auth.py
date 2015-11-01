@@ -12,23 +12,29 @@ not as methods of the classes
 
 TODO: Tokens should be singletons by name
 
+Mendeley Authethentication Documentation:
+http://apidocs.mendeley.com/home/authentication
+
+Public functions of interest:
+----------------------------------------
+get_user_credentials_no_prompts()
+
+
+
+
 """
 import requests
 from requests.auth import AuthBase
 
 import datetime
+import pytz #This seems to be a 3rd party library but is installed on
+#my local Python installation (Py Timze Zones)
 
 import pickle
 import os
 
-
 from . import utils
 from . import config
-
-
-
-#http://apidocs.mendeley.com/home/authentication
-
 
 class _Credentials(AuthBase):
     
@@ -39,6 +45,8 @@ class _Credentials(AuthBase):
     
     TODO: I currently have a lot of duplicated code between the two classes that
     needs to be moved to here.
+    # - get_file_path()
+    # - renew_token_if_necessary()
     """
     
     @staticmethod
@@ -56,20 +64,21 @@ class _Credentials(AuthBase):
 class UserCredentials(_Credentials):
     
     """
-    This class represents an access token. An access token allows a program to
-    access user specific information. This class should normally be retrieved
-    by:
+    This class represents an access token (and refresh token). An access token 
+    allows a program to access user specific information. This class should 
+    normally be retrieved by:
     
+    #TODO: replace with functions
     1) Calling UserCredentials.load(user_name)
     2) Calling get_access_token(user_name,password)
     
-    Attributes:
-    -------------------------------------------
-    version : str
+    Attributes
+    ----------
+    version : string
         The current version of the access token. Since these are saved to disk
-        this value is retained
-    user_name : str
-    access_token : str
+        this value is retained in case we need to make changes.
+    user_name : string
+    access_token : string
         The actual access token. This might be renamed ...
     token_type : str
         I'm not really sure what this is for. It is currently sent in response
@@ -77,44 +86,63 @@ class UserCredentials(_Credentials):
         value is "bearer"
         
     JAH NOTE: I'm not thrilled with the name of this class ...
+    #UserAccess instead? - just this implies it only handles the access token
     """  
     
     
-    #NYI: The goal is to say if the token will expire in 1 minute, renew it now 
-    #rather than making a request and finding that the token has expired
+    #The amount of time prior to token expiration that a request should be
+    #made to renew the token. See self.renew_token_if_necessary()
+    #I'm trying to avoid the following:
+    # 1) check for valid token
+    # 2) token becomes invalid
+    # 3) request with invalid token
+    #
+    #Default value: check if there is less than 1 minute
     RENEW_TIME = datetime.timedelta(minutes = 1)    
     
     def __init__(self, json, user_info):
-        self.version  = 1
+        """
+        Parameters
+        ----------
+        json : dict
+        user_info : UserInfo
+            
+        """
+        self.version = 1
         self.user_name = user_info.user_name
-        
         self.populate_token_from_JSON(json)
              
     def populate_token_from_JSON(self, json):
+        """
+        Mendeley will return json from the http request.
+        
+        Ignoring token_type attribute (generally/always? with 'bearer' value)
+        """
         self.access_token  = json['access_token']
         self.token_type    = json['token_type']
         self.refresh_token = json['refresh_token']
-        self.expires       = datetime.datetime.now() + datetime.timedelta(seconds=json['expires_in'])
+        #We'll work with utc just in case someone moves between time zones
+        self.expires       = datetime.datetime.now(pytz.utc) + datetime.timedelta(seconds=json['expires_in'])
         
         return None
-
 
     def __repr__(self):
         
         #TODO: Make generic and make a call to the generic function (low priority)
         return \
             '      version : %d\n' % (self.version)         + \
-            '     user_name : %s\n' % (self.user_name)        + \
+            '    user_name : %s\n' % (self.user_name)       + \
             '  acess_token : %s\n' % (self.access_token)    + \
             '   token_type : %s\n' % (self.token_type)      + \
             'refresh_token : %s\n' % (self.refresh_token)   + \
             '      expires : %s\n' % (str(self.expires))    + \
-            ' token_expired: %s\n' % (self.token_expired)
+            'token_expired : %s\n' % (self.token_expired)
 
     def __call__(self,r):
         
         """
-        This method is called before a request is sent as part of inheriting from AuthBase
+        This method is called before a request is sent as part of inheriting 
+        from AuthBase.
         
         See Also:
         .api.UserMethods
@@ -135,7 +163,7 @@ class UserCredentials(_Credentials):
         Determine if the token has expired. As of this writing
         the token expires 1 hour after being granted.
         """
-        time_diff = self.expires - datetime.datetime.now()
+        time_diff = self.expires - datetime.datetime.now(pytz.utc)
       
         return time_diff.total_seconds() < 0
 
@@ -144,12 +172,12 @@ class UserCredentials(_Credentials):
         """
         Renews the access token if it has expired or is about to expire.
 
-        Returns:
-        --------
+        Returns
+        -------
         None
         """
       
-        if datetime.datetime.now() + self.RENEW_TIME > self.expires:
+        if datetime.datetime.now(pytz.utc) + self.RENEW_TIME > self.expires:
             self.renew_token()
         
         return None
@@ -160,8 +188,8 @@ class UserCredentials(_Credentials):
         """
         Renews the access token so that requests can be made for user data.      
       
-        NOTE: Apparently the refresh_token can be used even after it has expired.
-        In this case the refresh token is like the access token in OAuth 1
+        NOTE: The refresh_token can be used even after the access token has 
+        expired.
         """      
       
         URL     = 'https://api-oauth2.mendeley.com/oauth/token'      
@@ -222,12 +250,29 @@ class UserCredentials(_Credentials):
         return None
     
     @staticmethod
+    def resolve_user_name(user_name):
+        """
+        Parameters
+        ----------
+        user_name : string or None
+            If the user_name is None, it is replaced with the default
+            user from the configuration file.
+        """
+        if user_name is None:
+            du = config.DefaultUser
+            user_name = du.user_name
+            
+        #TODO: Check the user_name is not empty
+            
+        return user_name
+    
+    @staticmethod
     def does_token_exist(user_name):
         pass
         #TODO: Allow user to see if the token exists
     
     @classmethod
-    def load(cls, user_name = None):
+    def load(cls, user_name = None, create_if_missing = True):
         
         """
         Loads the class instance from disk.        
@@ -238,43 +283,57 @@ class UserCredentials(_Credentials):
             If the user_name is not passed in then a default user should be
             defined in the config file.
         """
-
-        #TODO: Do an explicit test for file existence (or catch and test)
         
-        #TODO: This should have version lookup
+        #TODO: This should eventually have version lookup
         #https://docs.python.org/2/library/pickle.html#pickling-and-unpickling-normal-class-instances
         #would involve using __setstate__
-        if user_name is None:
-            du       = config.DefaultUser
-            user_name = du.user_name
-            
+        
+        
+        user_name = cls.resolve_user_name(user_name)       
         load_path = cls.get_file_path(user_name)
         
+        #Handle potentially missing file
+        #-------------------------------
         if not os.path.isfile(load_path):
-            raise Exception('Requested token does not exist')
-                
-        
+            if create_if_missing:
+                get_user_credentials_no_prompts()
+            else:
+                raise Exception('Requested token does not exist')
+                       
         with open(load_path,'rb') as f:
             temp = pickle.load(f)
-            
-        #TODO: allow for getting new access token if needed    
-            
+                          
         return temp    
 
 #TODO: This will provide a URL for the user
+#that can then go to a web browser and get the json
+#which would then be pasted into some popup screen
+#
+#Perhaps this would use Selenium?
 def _get_authorization_code_manually():
     pass
 
 def _get_authorization_code_auto(user_name,password):
     
     """
-        
+    The authorization code is what the user gives to the Client, allowing
+    the Client to make requests on behalf of the User to Mendeley
+
+    Rough OAUTH Outline
+    -------------------
+    1) User askes to use client
+    2) Client gives User some information to give to Mendeley
+    3) User gives the Client info to Mendeley along with user's id & pass, 
+    and Mendeley gives the User some information (the authorization code) to 
+    give to the Client.
+    4) Client now has the information it needs to make requests for the 
+    User's data
     
-    Parameters:
-    -----------
-    user_name : str
+    Parameters
+    ----------
+    user_name : string
     
-    password : str
+    password : string
         
     """    
     
@@ -325,7 +384,8 @@ def get_user_credentials_no_prompts(user_name=None, password=None, save=True):
     """
     This function returns an access token for accessing user information. It 
     does so without requiring any user prompts. As such it requires the user
-    to enter their password into this function.    
+    to enter their password into this function OR Alternatively if the values 
+    are not provided the code will attempt to load them from the config file.    
     
     Parameters:
     -----------
@@ -418,7 +478,8 @@ class UserInfo(object):
     
     """
     This is a small little class that stores user info. The irony of such a
-    class given OAuth is not lost on me.    
+    class, one that holds onto the users password, given the goals OAuth,
+    is not lost on me.    
     
     This class might be removed in favor of only using the authorization code.
     
@@ -428,9 +489,9 @@ class UserInfo(object):
     to automatically pull their information given this code, rather than
     have them provide it as well.
     
-    Attributes:
-    ----------------------------------------
-    user_name : str
+    Attributes
+    ----------
+    user_name : string
         The user_name is actually an email address.
     password : str
         The user's password.
@@ -464,17 +525,15 @@ class PublicCredentials(_Credentials):
     def __init__(self,json):
         
         self.access_token = json['access_token']
-        self.token_type   = json['token_type']
-        self.expires      = datetime.datetime.now() + datetime.timedelta(seconds=json['expires_in'])
+        self.token_type = json['token_type']
+        self.expires = datetime.datetime.now(pytz.utc) + datetime.timedelta(seconds=json['expires_in'])
     
     def __repr__(self):
-        
-        #TODO: Make generic and make a call to the generic function
         return \
             '  acess_token : %s\n' % (self.access_token)    + \
             '   token_type : %s\n' % (self.token_type)      + \
             '      expires : %s\n' % (str(self.expires))    + \
-            ' token_expired: %s\n' % (self.token_expired)
+            'token_expired : %s\n' % (self.token_expired)
     
     @property
     def token_expired(self):
@@ -492,7 +551,12 @@ class PublicCredentials(_Credentials):
         """
         This method is called before a request is sent.
         
-        See Also:
+        Parameters
+        ----------
+        r : Requests Object
+        
+        See Also
+        --------
         .api.PublicMethods
         """
         #Called before request is sent
