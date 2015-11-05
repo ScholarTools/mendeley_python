@@ -609,7 +609,7 @@ class PublicCredentials(_Credentials):
 
         #TODO: It would be nice to have this in _Credentials
       
-        if datetime.datetime.now() + self.RENEW_TIME > self.expires:
+        if datetime.datetime.now(pytz.utc) + self.RENEW_TIME > self.expires:
             json = self._make_request_for_token()
             self.__init__(json)
             
@@ -666,6 +666,7 @@ class PublicCredentials(_Credentials):
   
         payload = {
             'grant_type'    : 'client_credentials',
+            'scope'         : 'all',
             'redirect_uri'  : config.Oauth2Credentials.redirect_url,
             'client_secret' : config.Oauth2Credentials.client_secret,
             'client_id'     : config.Oauth2Credentials.client_id,

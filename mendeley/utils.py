@@ -6,6 +6,13 @@
 import os
 import inspect
 
+
+def get_truncated_display_string(input_string,max_length = 30):
+    if len(input_string) > max_length:
+        return input_string[:max_length] + '...'
+    else:
+        return input_string
+
 def user_name_to_file_name(user_name):
     """
     Provides a standard way of going from a user_name to something that will

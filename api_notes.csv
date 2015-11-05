@@ -1,0 +1,3 @@
+Description,Function,Notes
+Retrieving Annotations,GET https://api.mendeley.com/annotations,
+Creating an annotaton,POST https://api.mendeley.com/annotations,There is no documentation on this function

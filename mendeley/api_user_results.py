@@ -13,6 +13,7 @@ import os
 import pickle
 
 from .utils import assign_json, get_unnasigned_json
+from .utils import get_truncated_display_string as td
 
 
 class ResponseObject(object):
@@ -343,56 +344,3 @@ class LibraryIDs(object):
          
 
             
-class ProfileInfo(object):
-    
-    """
-    http://dev.mendeley.com/methods/#profile-attributes
-    
-    Attributes
-    ----------    
-    
-    #TODO: Allow updating 
-    """
-    def __init__(self,json,m):
-        
-        """
-        Parameters
-        ----------
-        json : dict
-        m : api.UserMethods
-        """
-             
-        #TODO: I'd like to eventually populate each attribute 
-        #lazily - TODO: Write code that writes this code
-        for key in json:
-            setattr(self,key,json[key])
-
-    def __repr__(self):
-        
-        return \
-            'first_name : %s\n' % (self.first_name) +\
-            ' last_name : %s\n' % (self.last_name)
-
-
-def get_document_set(json,m):
-    
-    return [DocumentEntry(x,m) for x in json]
-    
-#TODO: There are multiple views    
-class DocumentEntry(object):
-    
-    def __init__(self,json,m):
-        for key in json:
-            setattr(self,key,json[key])
-        
-
-    def __repr__(self):
-        #Not yet finished
-        return \
-            'title : %s\n' % (self.title) +\
-            '   id : %s\n' % (self.id)
-            
-class DocumentIdentifiers(object):
-    
-    def __init__(self,json):
-        pass        

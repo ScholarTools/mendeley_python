@@ -2,10 +2,21 @@
 """
 
 This module is meant to implement all functions described at:
+http://dev.mendeley.com/methods/
 
-http://apidocs.mendeley.com/home/public-resources
-&
-http://apidocs.mendeley.com/home/user-specific-methods
+General Usage
+-------------
+from mendeley import api as mapi
+um = mapi.UserMethods()
+pm = mapi.PublicMethods()
+
+Request Options
+---------------
+In addition to the options of a given function, the following options are also
+supported:
+TODO: fill this in: example _return_type
+
+TODO: Create an options class that can be given to the request (e.g. for return type)
 
 
 """
@@ -22,41 +33,32 @@ else:
 from . import auth
 import requests
 import pdb
-from . import api_user_results as uresults
-from . import api_public_results as presults
+from . import models
 
 class _APIMethods(object):
     
     """
     This is a shared superclass for both the public and private API classes.
+    
+    Attributes
+    ----------
+    default_return_type : {'object','json','raw','response'}
+        This is the default type to return if 
+        
     """
     
     BASE_URL = 'https://api.mendeley.com' 
 
     #TODO: Have something that indicates that access_token is required
     #for subclasses to have ...
+    def __init__(self,token):
+        self.default_return_type = 'object'
+        self.access_token = token
+        self.s = requests.Session()
+        self.last_response = None
+        self.last_params = None
 
-    @staticmethod
-    def fix_url_input(input_data):
-        
-        """
-            This is basically a call to encode an input for GET requests so
-            that they are valid parameters or values for the URL
-            
-            Parameters
-            ----------
-            input_data
-        """        
-        
-        return urllib_quote(input_data,'')
-        #TODO: Not sure what this code was doing, need to test Python 2 again
-#        if isinstance(input_data, basestring):
-#            return urllib_quote(input_data,'')
-#        else:
-#            return urllib_quote(str(input_data),'')
-        
-
-    def make_get_request(self, url, object_fh, params = None, good_status = 200, return_type = 'object'):
+    def make_get_request(self, url, object_fh, params = None):
                 
         """
 
@@ -72,7 +74,7 @@ class _APIMethods(object):
         good_status : int (default 200)
             The status to check for as to whether or not the request 
             was successful.
-        return_type : {'object','json','raw'}
+        return_type : {'object','json','raw','response'}
             object - indicates that the result class object should be created.
                 This is the slowest option but provides the most functionality.
             json   - 
@@ -83,6 +85,10 @@ class _APIMethods(object):
         .auth.PublicCredentials.__call__()
         """
         
+        #TODO: extract good_status = 200, return_type = None from params        
+        
+    
+        
         if params is None:
             params = {}
         else:
@@ -91,14 +97,20 @@ class _APIMethods(object):
             else:
                 params = dict((k, v) for k, v in params.items() if v)
         
+        return_type = params.pop('_return_type',self.default_return_type)
+        
         #TODO: Create a session object and work off of that
                     
         #NOTE: We make authorization go through the access token. The request
         #will call the access_token prior to sending the request. Specifically
         #the __call__ method is called.
-        r = requests.get(url,params=params,auth=self.access_token)      
+        r = self.s.get(url,params=params,auth=self.access_token)      
         
-        if r.status_code != good_status:
+        self.last_response = r     
+        self.last_params = params
+                
+        if not r.ok:
+        #if r.status_code != good_status:
             print(r.text)
             print('')
             #TODO: This should be improved
@@ -111,10 +123,11 @@ class _APIMethods(object):
             return r.json()
         elif return_type is 'raw':
             return r.text
+        elif return_type is 'response':
+            return r
         else:
             raise Exception('No match found for return type')
-            
-        return r
+
 
 
 class PublicMethods(_APIMethods):
@@ -130,129 +143,30 @@ class PublicMethods(_APIMethods):
     """
     
     def __init__(self):
-        self.access_token = auth._get_public_credentials()
-        pass
+        super(PublicMethods, self).__init__(token=auth._get_public_credentials())
+        
+    def academic_statuses(self,**kwargs):
+        """
+        Example
+        -------        
+        from mendeley import api as mapi
+        pm  = mapi.PublicMethods()
+        
+        a_status = pm.academic_statuses()
+        """
+        url = self.BASE_URL + '/academic_statuses'
+        
+        params = kwargs
+        
+        return self.make_get_request(url,models.academic_statuses,params)
+        
+#    def identifier_types(self,**kwargs):
+#
+#        params = kwargs
+#
+#        return self.make_get_request(url,models.DocumentSet,params)
+        
     
-    """
-    ===========================================================================
-                                Stats Methods
-    ===========================================================================
-    """
-    
-    def get_top_authors(self,discipline_id = None):
-        """
-        Returns list of all-time top authors across all disciplines, 
-        unless a discipline is specified.
-        
-        Parameters:
-        -----------
-        discipline_id : int, str (default None)
-            Discipline ID is an enumeration of disciplines. This list comes
-            from the method get_disciplines
-            
-        Returns:
-        --------
-        list of mendeley.api_user_results.TopAuthor
-        """        
-        
-        url = self.BASE_URL + 'stats/authors/'
-    
-        params = {
-            'discipline'   :  discipline_id}
-
-        r = self.make_get_request(url,params)    
-
-        #NOTE: We might not get JSON ... 
-        temp_json = r.json()
-        return [presults.TopAuthor(x) for x in temp_json]
-        
-    """
-    ===========================================================================
-                                Search Methods
-    ===========================================================================
-    """        
-    
-    def search_Mendeley_catalog(self,terms,page=0,items=20):
-        """
-        Searches Mendeley catalog for entries with matches.
-        
-        @DOC: http://apidocs.mendeley.com/home/public-resources/search-terms
-        """
-        
-        url = self.BASE_URL + 'documents/search/%s/' % (self.fix_url_input(terms))        
-       
-        params = {
-            'page'   :  page,
-            'items'  :  items}       
-       
-        r = self.make_get_request(url,params)
-        pdb.set_trace()       
-       
-        #TODO: Build response
-        #total_results
-        #items_per_page
-        #total_pages
-        #current_page
-        #documents       
-       
-        return None
-    
-    def get_entry_details(self,id,id_type='Mendeley'):
-        """
-        
-        Parameters:
-        -----------
-        id : int, str
-        id_type : {'Mendeley','arxiv','doi','isbn','pmid','scopus','ssm'}
-            
-        @DOC: http://apidocs.mendeley.com/home/public-resources/search-details
-        """
-        
-        url = self.BASE_URL + 'documents/details/%s/' % (self.fix_url_input(id))     
-        
-        if id_type is 'Mendeley':
-            id_type = None #No type means use Mendeley canonical ID
-        
-        params = {
-            'type'   :  id_type}       
-       
-        r = self.make_get_request(url,params)
-       
-        return uresults.PublicJournalArticle(r.json())
-    
-    def get_related_papers(self,id):
-        """
-        Returns list of up to 20 research papers related to the queried 
-        canonical id.
-        
-        @DOC: http://apidocs.mendeley.com/home/public-resources/search-related
-        """
-        url = self.BASE_URL + 'documents/related/%s/' + id
-        
-        r = self.make_get_request(url)
-        pdb.set_trace()
-        
-        return None
-        
-    def get_pubs_with_name(self,name,page=0,items=20,year=None):
-        """
-        Returns list of publications with that author name.
-        
-        @DOC: http://apidocs.mendeley.com/home/public-resources/search-authored        
-        """
-        
-        url = self.BASE_URL + 'documents/authored/%s/' + self.fix_url_input(name)
-
-        params = {
-            'page'   :  page,
-            'items'  :  items,
-            'year'   :  year}
-
-        r = self.make_get_request(url,params)
-        pdb.set_trace()
-        
-        return None
-
 class UserMethods(_APIMethods):
 
     """
@@ -282,15 +196,14 @@ class UserMethods(_APIMethods):
         user_name : str (default None)
             If no input is specified the default user will be used.        
         """
+        super(UserMethods, self).__init__(token=auth.UserCredentials.load(user_name))
 
-        #TODO: Could allow changing default return type for the methods
-        #i.e. from an object to the raw json
-
-        self.access_token = auth.UserCredentials.load(user_name)
     
+    @property
+    def user_name(self):
+        return self.access_token.user_name
 
-    #New Code
-    #=====================================================================
+
     def profile_get_info(self, profile_id = 'me'):
         """
         
@@ -313,11 +226,11 @@ class UserMethods(_APIMethods):
             
         params = {}
 
-        return self.make_get_request(url,uresults.ProfileInfo,params)    
+        return self.make_get_request(url,models.ProfileInfo,params)    
     
-    def docs_get_details(self):
+    def docs_get_details(self,**kwargs):
         """
-
+        
         Parameters
         ----------
         view
@@ -326,177 +239,54 @@ class UserMethods(_APIMethods):
             - 'tags'
             - 'patent'
             - 'all'
-        profile_id
-        group_id
-        modified_since
-        deleted_since
+        profile_id : string
+            The id of the profile that the document belongs to, that does not 
+            belong to any group. If not supplied returns users documents.
+        group_id : string
+            The id of the group that the document belongs to. If not supplied 
+            returns users documents.
+        modified_since : string
+            Returns only documents modified since this timestamp. Should be 
+            supplied in ISO 8601 format.
+        deleted_since : string
+            Returns only documents deleted since this timestamp. Should be 
+            supplied in ISO 8601 format.
         limit : string or int (default 20)
             Largest allowable value is 500
-        order
-        sort
+        order :
+            - 'asc' - sort the field in ascending order
+            ' 'desc' - sort the field in descending order
+        sort : string
+            Field to sort on. Avaiable options:
+            - 'created'
+            - 'last_modified'
+            - 'title'
+            
+        Examples
+        --------
+        from mendeley import api as mapi
+        um  = mapi.UserMethods()
+        
+        1) No options
+        docs = um.docs_get_details()
+
 
         
         """
+        #TODO: Add on more usage examples
         url = self.BASE_URL + '/documents/'
             
-        params = {}
+        params = kwargs
 
-        return self.make_get_request(url,uresults.get_document_set,params)   
+        return self.make_get_request(url,models.DocumentSet,params)
 
-
-
-    #Old Code
-    #=====================================================================
-
-               
-    @property
-    def user_name(self):
-        return self.access_token.user_name
-
-    """
-    ===========================================================================
-                                Stats Methods
-    ===========================================================================
-    """
-    def stats_authors(self):
-        """
-        Returns list of top 5 authors in user library.
-        
-        @DOC: http://apidocs.mendeley.com/home/user-specific-methods/user-authors-stats 
-        """
-
-        url = self.BASE_URL + 'library/authors/'
-    
-        params = {}
-
-        r = self.make_get_request(url,params)    
-    
-        return uresults.LibraryIDs(r.json(),self)
-        
-    
-    def stats_tags():
-        pass
-    
-    def stats_publications():
-        pass
-
-    """
-    ===========================================================================
-                                Documents Methods
-    ===========================================================================
-    """
-
-
-    def docs_get_library_ids(self, page=0, items=20, get_all=False, **kwargs):
-        """
-        Returns a set of IDs that the user has in their library. These ID's 
-        uniquely identify library entries.          
-         
-        Parameters:
-        -----------
-        page  : int, str (default 0)
-            Page # to get, 0 based.
-        items : int, str (default 20)
-            Maximum # of items per page to return.
-        get_all : logical (default False)
-            If true this returns all ids in the library.
-            
-        See Also:
-        ---------
-        .api._APIMethods.make_get_request
-        .api_user_results.LibraryIDsContainer
-
-        Returns:
-        @DOC: http://apidocs.mendeley.com/home/user-specific-methods/user-library
-        """
-
-        if get_all is True:
-            temp = self.docs_get_library_ids(page=0,items=1)
-            return self.docs_get_library_ids(page=0,items=temp.n_entries_in_lib)
-    
-        url = self.BASE_URL + 'library/'
-    
-        params = {
-            'page' :  page,
-            'items':  items}
-
-        object_fh = uresults.LibraryIDs;
-        return self.make_get_request(url,object_fh,params)    
-       
-    def docs_get_user_authored():
-        """
-        @DOC: http://apidocs.mendeley.com/home/user-specific-methods/user-authored
-        """
-        pass
-    
-#    def docs_get_details(self, id, **kwargs):
-#        """
-#        @DOC: http://apidocs.mendeley.com/home/user-specific-methods/user-library-document-details
-#        """
-#        
-#        url = self.BASE_URL + 'library/documents/%s/' % (id)    
-#        
-#        params = {}
-#        
-#        import pdb
-#        pdb.set_trace()
-#        
-#        r = self.make_get_request(url,params)  
-#        
-#        return r.json()
-#        
-#        pass
-    
-    def docs_create_new():
-        """
-        @DOC: http://apidocs.mendeley.com/home/user-specific-methods/user-library-create-document
-        """
-        
-    def docs_update():
-        """
-        @DOC: http://apidocs.mendeley.com/home/user-specific-methods/user-library-update-document
-        """
-   
-    def docs_upload_file():
-        """
-        @DOC: http://apidocs.mendeley.com/home/user-specific-methods/file-upload
-        """
-    def docs_download_file():
-        """
-        @DOC: http://apidocs.mendeley.com/home/user-specific-methods/download-file
-        """
-        
-    def docs_delete():
-        """
-        @DOC: http://apidocs.mendeley.com/home/user-specific-methods/user-library-remove-document
-        """
-        
-    """
-    ===========================================================================
-                                Profile  Method
-    ===========================================================================
-    """
-    
-
-     
     def __repr__(self):
-        #TODO: Add on current user ...
+
         return \
-        'Stats Methods:\n' + \
-        '   stats_authors\n' + \
-        '   stats_tags\n' + \
-        '   stats_publications\n' + \
-        'Document Methods:\n' + \
-        '   docs_get_library_ids - DONE\n' + \
-        '   docs_get_user_authored\n' + \
-        '   docs_get_details\n' + \
-        '   docs_create_new\n' + \
-        '   docs_update\n' + \
-        '   docs_upload_file\n' + \
-        '   docs_download_file\n' + \
-        '   docs_delete\n' + \
-        'Profile Methods:\n' + \
-        '   profile_get_info\n'
+        'Current User: %s\n' % self.user_name +\
+        'Methods:\n' + \
+        '   profile_get_info\n' +\
+        '   docs_get_details\n'
         
         
         
