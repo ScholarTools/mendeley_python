@@ -5,6 +5,17 @@ TODO: Move results objects into here
 
 from .utils import get_truncated_display_string as td
 
+class WTF(object):
+    def __init__(self,json,m):
+        import pdb
+        pdb.set_trace()    
+
+class Annotation(object):
+    
+    def __init__(self,json,m):
+        import pdb
+        pdb.set_trace()
+
 def academic_statuses(json,m):
     """
     The json contains a list of dictionaries but each dictionary

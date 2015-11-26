@@ -1,3 +1,5 @@
-Description,Function,Notes
-Retrieving Annotations,GET https://api.mendeley.com/annotations,
-Creating an annotaton,POST https://api.mendeley.com/annotations,There is no documentation on this function
+Description,Function,,Notes
+Retrieving Annotations,GET https://api.mendeley.com/annotations,http://dev.mendeley.com/methods/?shell#retrieving-annotations,
+Creating an annotaton,POST https://api.mendeley.com/annotations,,There is no documentation on this function - need to look at Android example
+Updating an Annotation,PATCH https://api.mendeley.com/annotations/{id},,
+Deleting an Annotation,DELETE https://api.mendeley.com/annotations/{id},http://dev.mendeley.com/methods/?shell#deleting-an-annotation,

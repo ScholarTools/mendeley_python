@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 """
+********************************************************************
+OLD - parts need to be copied and then the file needs to be deleted
+********************************************************************
+
 This module contains the resulting objects created from API calls.
 
 It's design is currently in flux and will likely change.

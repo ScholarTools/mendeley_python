@@ -1,25 +1,21 @@
 # -*- coding: utf-8 -*-
 """
-
+Example function calls
 """
 
-from mendeley import auth
-from mendeley import api as mapi
+from mendeley import API
+
+#Retrieval of all available academic statuses
+m = API()
+academic_statuses = m.academic_statuses()
 
 
-#1 Retrieval of a user token
-#-----------------------------
-#I've rewritten UserMethods to call this automatically
-#
-#   ut = auth.get_user_credentials_no_prompts()
 
-#2 Loading a token from disk
-#------------------------------
-#NOTE: I'd like to expose load via a module method
-#at = auth.UserAccessToken.load()
 
-#3 Making a function call
-#------------------------------
+
+
+
+
 um  = mapi.UserMethods()
 wtf = um.docs_get_details()
 import pdb

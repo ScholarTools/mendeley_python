@@ -12,6 +12,7 @@ Documentation for SQLAlchemy:
 http://docs.sqlalchemy.org/en/rel_0_9/index.html
 
 Examples of others:
+-------------------
 https://github.com/Mendeley/mendeley-oapi-example/blob/master/mendeley_client.py
 https://github.com/Mendeley/mendeley-oapi-example/blob/master/synced_client.py
 https://github.com/Mendeley/mendeley-api-python-example/blob/master/mendeley-example.py

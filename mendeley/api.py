@@ -35,7 +35,7 @@ import requests
 import pdb
 from . import models
 
-class _APIMethods(object):
+class API(object):
     
     """
     This is a shared superclass for both the public and private API classes.
@@ -43,20 +43,47 @@ class _APIMethods(object):
     Attributes
     ----------
     default_return_type : {'object','json','raw','response'}
-        This is the default type to return if 
+        This is the default type to return from methods.
+        
+    last_response : 
+    last_params : 
         
     """
     
     BASE_URL = 'https://api.mendeley.com' 
 
-    #TODO: Have something that indicates that access_token is required
-    #for subclasses to have ...
-    def __init__(self,token):
+    def __init__(self,user_name=None):
+        """
+        Parameters
+        ----------
+        user_name :
+        """
+        #TODO: Decide how I want to handle this
+        #In the old approach None means use the default user ...
+        self.public_only = False        
+        #self.public_only = user_name is None
+        
+        #if user_name is None:
+        #    token = auth._get_public_credentials()
+        #else:
+        token = auth.UserCredentials.load(user_name)
+       
+       #TODO: Add on printing of object with methods and default options
+        
         self.default_return_type = 'object'
         self.access_token = token
         self.s = requests.Session()
         self.last_response = None
         self.last_params = None
+        
+        self.annotations = Annotations(self)
+
+    @property
+    def user_name(self):
+        if self.public_only:
+            return None
+        else:
+            return self.access_token.user_name
 
     def make_get_request(self, url, object_fh, params = None):
                 
@@ -127,32 +154,14 @@ class _APIMethods(object):
             return r
         else:
             raise Exception('No match found for return type')
-
-
-
-class PublicMethods(_APIMethods):
-    
-    """
-    This class exposes the public methods of the API.
-    
-    Example:
-    --------
-    from mendeley import api
-    pm = api.PublicMethods()
-    ta = pm.get_top_authors()
-    """
-    
-    def __init__(self):
-        super(PublicMethods, self).__init__(token=auth._get_public_credentials())
-        
+            
     def academic_statuses(self,**kwargs):
         """
         Example
         -------        
-        from mendeley import api as mapi
-        pm  = mapi.PublicMethods()
-        
-        a_status = pm.academic_statuses()
+        from mendeley import API
+        m = API()
+        a_status = m.academic_statuses()
         """
         url = self.BASE_URL + '/academic_statuses'
         
@@ -160,14 +169,74 @@ class PublicMethods(_APIMethods):
         
         return self.make_get_request(url,models.academic_statuses,params)
         
-#    def identifier_types(self,**kwargs):
-#
-#        params = kwargs
-#
-#        return self.make_get_request(url,models.DocumentSet,params)
+    def catalog(self,**kwargs):
         
+        """
+        
+        Parameters
+        ----------
+        arxiv
+        doi
+        isbn
+        issn
+        pmid
+        scopus
+        filehash
+        view
+         - bib
+         - stats
+         - client
+         - all
+        cid : string
+            Short for Catalog ID. Mendeley's catalog id. The only way I know of
+            getting this is from a previous Mendeley search.
+        
+        Examples
+        --------
+        from mendeley import API
+        m = API()
+        m.catalog(pmid='11826063')
+        m.catalog(cid='f631d7ed-9926-34ed-b56e-0f5bb236b87b')
+        """
+        
+        """
+        Internal Note: Returns a list of catalog entries that match a 
+        given query 
+        #TODO: Is this the case for a given id? NO - only returns signle entry
+        #TODO: Build this into tests
+        """
+        #TODO: look for id and change url
+        
+        url = self.BASE_URL + '/catalog'
+        if 'cid' in kwargs:
+            cid = kwargs.pop('cid')
+            url += '/%s/' % cid
+            
+        params = kwargs
+
+        return self.make_get_request(url,models.WTF,params)        
+        
+        
+        pass
+
+class Annotations(object):
     
-class UserMethods(_APIMethods):
+    def __init__(self,parent):
+        self.parent = parent
+        
+    def get():
+        #https://api.mendeley.com/apidocs#!/annotations/getAnnotations
+        pass
+    
+    def delete():
+        pass
+    
+class MetaData(object):
+#https://api.mendeley.com/apidocs#!/metadata/getDocumentIdByMetadata    
+    pass
+
+    
+class UserMethods(API):
 
     """
     This class exposes API calls that are specific to a user.
@@ -184,24 +253,8 @@ class UserMethods(_APIMethods):
     lib_ids = um.docs_get_library_ids(items=100)
     
     """
-        
-    
-        
-        
-    def __init__(self, user_name = None):
-        """
-        
-        Parameters:
-        -----------
-        user_name : str (default None)
-            If no input is specified the default user will be used.        
-        """
-        super(UserMethods, self).__init__(token=auth.UserCredentials.load(user_name))
+            
 
-    
-    @property
-    def user_name(self):
-        return self.access_token.user_name
 
 
     def profile_get_info(self, profile_id = 'me'):
