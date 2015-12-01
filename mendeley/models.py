@@ -1,14 +1,47 @@
 # -*- coding: utf-8 -*-
 """
-TODO: Move results objects into here
+
+Models:
+
+
 """
 
 from .utils import get_truncated_display_string as td
 
+"""
+#This is temporary ...
 class WTF(object):
     def __init__(self,json,m):
         import pdb
+        pdb.set_trace()
+        
+class WTF2(object):
+    def __init__(self,json,m,response_params):
+        import pdb
         pdb.set_trace()    
+"""
+
+class ResponseObject(object):
+    
+    def __init__(self,json):
+        self.json = json
+
+    def __getattr__(self, name):
+        if name in self.fields():
+            return self.json.get(name)
+        else:
+            raise AttributeError("'%s' object has no attribute '%s'" % (self.__class__.__name__, name))
+
+    @classmethod
+    def __dir__(cls):
+        d = set(dir(cls) + cls.fields())
+        d.remove('fields')
+
+        return sorted(d)
+
+    @classmethod
+    def fields(cls):
+        return []
 
 class Annotation(object):
     
@@ -23,6 +56,22 @@ def academic_statuses(json,m):
     I'm currently only returning the descriptions.
     """
     return [x['description'] for x in json]
+    
+def disciplines(json,m):
+    """
+    There is also a 'subdiscipline' field
+    but it is always empty, I think this is a bug
+    in the API
+    """
+    #'name
+    #'subdisciplines'
+    
+    #return [x['name'] for x in json]
+    return json
+    
+def document_types(json,m):
+    
+    return json
 
 class ProfileInfo(object):
     
@@ -57,7 +106,8 @@ class ProfileInfo(object):
 
 class DocumentSet(object):
     
-    def __init__(self,json,m):
+    
+    def __init__(self,json,m,params):
         """
         Parameters
         ----------
@@ -66,15 +116,27 @@ class DocumentSet(object):
         """
         #TODO: build in next and prev support
         self.links = m.last_response.links
-        
-        
+                
+        fcn = params['fcn']
         #TODO: Figure out how to support lazy loading
         #TODO: Support view construction
-        self.docs = [CoreDocument(x,m) for x in json]
+        self.docs = [fcn(x,m) for x in json]
     
     #TODO: These will need to call some common function
     #That function will need to figure out how to call pages
     #outside of the typical function calls
+    
+    @classmethod
+    def create(cls,json,m,params):
+        
+        #Callers
+        #- catalog
+        if isinstance(json,list):
+            return DocumentSet(json,m,params)
+        else:
+            fcn = params['fcn']
+            return fcn(json,m)
+        
     def first_page(self):
         pass
     
@@ -87,9 +149,137 @@ class DocumentSet(object):
     def last_page(self):
         pass
       
-    def __repr__(self):
-        pass
+    #def __repr__(self):
+    #    pass
+
+               
+class Document(ResponseObject):
+    
+    def __init__(self,json,m):
+        super(Document, self).__init__(json)
+    
+    @classmethod
+    def fields(cls):
+        return ['id','profile_id','source','title','type','year']
         
+    def obj_fields(cls):
+        return ['created','last_modified']
+        
+    def __repr__(self):
+        return u'' + \
+            '      created: %s\n' % self.created + \
+            'last_modified: %s\n' % self.last_modified + \
+            '           id: %s\n' % self.id
+
+#???? How does this compare to 
+class BibDocument(Document):
+
+    def __init__(self,json,m):
+        super(BibDocument, self).__init__(json,m)
+
+    @classmethod
+    def fields(cls):
+        return super(BibDocument, self).fields() + \
+            ['issue','pages','volume','websites']
+            
+    def __repr__(self):
+        return super(BibDocument, self).__repr__() + \
+            'issue: %s\n' + self.issue
+
+class ClientDocument(Document):
+    pass
+
+class TagsDocument(Document):
+    pass
+
+class StatsDocument(Document):
+    pass
+
+class AllDocument(Document):
+    pass
+
+class CatalogDocument(object):
+    """
+    Attributes
+    ----------
+    
+    """
+    
+    def __init__(self,json,m):
+        """
+        
+        """
+        self.raw = json
+        
+        self.title = json['title']        
+        self.type = json['type']
+        #Authors: To handle
+        #   first_name
+        #   last_name
+        self.year = json['year']
+        self.source = json['source']
+        #Identifiers: To Handle      
+        #   isbn?????
+        #   pmid
+        #   doi
+        #   issn
+        
+        self.id = json['id']
+        self.abstract = json.get('abstract')
+        self.link = json['link']
+        
+    def __repr__(self):
+        return u'' + \
+           '   title: %s\n' % td(self.title) + \
+           '    type: %s\n' % self.type + \
+           '    year: %s\n' % self.year + \
+           '  source: %s\n' % self.source + \
+           '      id: %s\n' % self.id + \
+           'abstract: %s\n' % td(self.abstract) + \
+           '    link: %s\n' % td(self.link)
+        
+class BibCatalogDocument(CatalogDocument):
+
+    def __init__(self,json,m):
+        import pdb
+        pdb.set_trace()
+        super(BibCatalogDocument, self).__init__(json,m)
+        self.issue = json['issue']
+        self.pages = json['pages']
+        self.volume = json['volume']
+    
+    def __repr__(self):
+        return super(BibCatalogDocument,self).__repr__() + \
+            '   issue: %s\n' % self.issue + \
+            '   pages: %s\n' % self.pages + \
+            '  volume: %s\n' % self.volume
+        
+class StatsCatalogDocument(CatalogDocument):
+    
+    def __init__(self,json,m):
+        super(StatsCatalogDocument, self).__init__(json,m)
+        self.group_count = json['group_count']
+        self.reader_count = json['reader_count']
+        
+        #These are objects and not parsed
+        #--------------------------------
+        self.reader_count_by_academic_status = json['reader_count_by_academic_status']
+        self.reader_count_by_country = json['reader_count_by_country']
+        self.reader_count_by_discipline = json['reader_count_by_subdiscipline']
+                   
+class ClientCatalogDocument(CatalogDocument):
+
+    def __init__(self,json,m):
+        super(ClientCatalogDocument, self).__init__(json,m)  
+        #file_attached: false
+
+class AllCatalogDocument(CatalogDocument):
+    
+    def __init__(self,json,m):
+        super(AllCatalogDocument, self).__init__()
+        #TODO: Not yet implemented
+        pass
+
 #TODO: There are multiple views which should be suppported
 #This would involve throwing a switch above
 class CoreDocument(object):
@@ -171,7 +361,18 @@ class CoreDocument(object):
             
             #TODO: For objects or none, have function
             #which displays size and object type or None
-            
+
+class BibDocument(object):
+    pass
+
+class StatsDocument(object):
+    pass
+
+class ClientDocument(object):
+    pass
+
+class CatalogAllDocument(object):
+    pass              
             
 class DocumentIdentifiers(object):
     

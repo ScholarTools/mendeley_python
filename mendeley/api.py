@@ -19,9 +19,22 @@ TODO: fill this in: example _return_type
 TODO: Create an options class that can be given to the request (e.g. for return type)
 
 
+Improvements
+------------
+1) Move functions with static info into a subclass
+- academic_statuses
+- disciplines
+
+
+Methods
+-------
+academic_statuses
+
 """
 
 import sys
+import mimetypes
+from os.path import basename
 
 PY2 = int(sys.version[0]) == 2
 
@@ -34,6 +47,23 @@ from . import auth
 import requests
 import pdb
 from . import models
+
+
+BASE_URL = 'https://api.mendeley.com' 
+catalog_fcns = {None:models.CatalogDocument,
+                'bib':models.BibCatalogDocument,
+               'stats':models.StatsCatalogDocument,
+               'client':models.ClientCatalogDocument,
+               'all':models.AllCatalogDocument
+               }
+
+document_fcns = {None:models.Document,
+                'bib':models.BibDocument,
+                'client':models.ClientDocument,
+               'tags':models.TagsDocument,
+               'stats':models.StatsDocument,
+               'all':models.AllDocument
+               }
 
 class API(object):
     
@@ -50,7 +80,7 @@ class API(object):
         
     """
     
-    BASE_URL = 'https://api.mendeley.com' 
+    
 
     def __init__(self,user_name=None):
         """
@@ -77,6 +107,8 @@ class API(object):
         self.last_params = None
         
         self.annotations = Annotations(self)
+        self.definitions = Definitions(self)
+        self.documents = Documents(self)
 
     @property
     def user_name(self):
@@ -85,7 +117,20 @@ class API(object):
         else:
             return self.access_token.user_name
 
-    def make_get_request(self, url, object_fh, params = None):
+    def make_post_request(self, url, object_fh, params, response_params=None, headers=None):
+        
+        #I'd like to be able to merge this with the get request method
+        #
+        #This code is currently in flux ...        
+        
+        #http://docs.python-requests.org/en/latest/user/advanced/#streaming-uploads
+        #files=files
+    
+        return_type = params.pop('_return_type',self.default_return_type)   
+    
+        r = self.s.get(url,params=params,auth=self.access_token, headers=None)   
+
+    def make_get_request(self, url, object_fh, params, response_params=None):
                 
         """
 
@@ -113,9 +158,7 @@ class API(object):
         """
         
         #TODO: extract good_status = 200, return_type = None from params        
-        
-    
-        
+
         if params is None:
             params = {}
         else:
@@ -125,14 +168,13 @@ class API(object):
                 params = dict((k, v) for k, v in params.items() if v)
         
         return_type = params.pop('_return_type',self.default_return_type)
-        
-        #TODO: Create a session object and work off of that
-                    
+                            
         #NOTE: We make authorization go through the access token. The request
         #will call the access_token prior to sending the request. Specifically
         #the __call__ method is called.
         r = self.s.get(url,params=params,auth=self.access_token)      
         
+        self.last_url = url
         self.last_response = r     
         self.last_params = params
                 
@@ -145,7 +187,10 @@ class API(object):
         
         
         if return_type is 'object':
-            return object_fh(r.json(),self)
+            if response_params is None:
+                return object_fh(r.json(),self)
+            else:
+                return object_fh(r.json(),self,response_params)
         elif return_type is 'json':
             return r.json()
         elif return_type is 'raw':
@@ -155,19 +200,7 @@ class API(object):
         else:
             raise Exception('No match found for return type')
             
-    def academic_statuses(self,**kwargs):
-        """
-        Example
-        -------        
-        from mendeley import API
-        m = API()
-        a_status = m.academic_statuses()
-        """
-        url = self.BASE_URL + '/academic_statuses'
-        
-        params = kwargs
-        
-        return self.make_get_request(url,models.academic_statuses,params)
+
         
     def catalog(self,**kwargs):
         
@@ -185,9 +218,9 @@ class API(object):
         view
          - bib
          - stats
-         - client
+         - client - this option doesn't make much sense
          - all
-        cid : string
+        id : string
             Short for Catalog ID. Mendeley's catalog id. The only way I know of
             getting this is from a previous Mendeley search.
         
@@ -195,8 +228,9 @@ class API(object):
         --------
         from mendeley import API
         m = API()
-        m.catalog(pmid='11826063')
-        m.catalog(cid='f631d7ed-9926-34ed-b56e-0f5bb236b87b')
+        c = m.catalog(pmid='11826063')
+        c = m.catalog(pmid='11826063',view='bib')
+        c = m.catalog(cid='f631d7ed-9926-34ed-b56e-0f5bb236b87b')
         """
         
         """
@@ -205,20 +239,71 @@ class API(object):
         #TODO: Is this the case for a given id? NO - only returns signle entry
         #TODO: Build this into tests
         """
-        #TODO: look for id and change url
         
-        url = self.BASE_URL + '/catalog'
-        if 'cid' in kwargs:
-            cid = kwargs.pop('cid')
-            url += '/%s/' % cid
-            
-        params = kwargs
+        url = BASE_URL + '/catalog'
+        if 'id' in kwargs:
+            id = kwargs.pop('id')
+            url += '/%s/' % id
 
-        return self.make_get_request(url,models.WTF,params)        
-        
-        
-        pass
+        view = kwargs.get('view')
+        response_params = {'fcn':catalog_fcns[view]}
 
+        return self.make_get_request(url,models.DocumentSet.create,kwargs,response_params)
+
+
+      
+        
+class Definitions(object):
+
+    """
+    TODO: These values should presumably only be queried once ...
+    """
+    def __init__(self,parent):
+        self.parent = parent 
+        
+    def academic_statuses(self,**kwargs):
+        """
+        
+        https://api.mendeley.com/apidocs#!/academic_statuses/get
+        
+        Example
+        -------        
+        from mendeley import API
+        m = API()
+        a_status = m.definitions.academic_statuses()
+        """
+        url = BASE_URL + '/academic_statuses'
+                
+        return self.parent.make_get_request(url,models.academic_statuses,kwargs)
+        
+    def disciplines(self,**kwargs):
+        """
+        Examples
+        --------
+        from mendeley import API
+        m = API()
+        d = m.definitions.disciplines()
+        """
+        url = BASE_URL + '/disciplines'
+                
+        return self.make_get_request(url,models.disciplines,kwargs)
+
+        
+    def document_types(self,**kwargs):
+        """
+        
+        https://api.mendeley.com/apidocs#!/document_types/getAllDocumentTypes
+        
+        Examples
+        --------
+        from mendeley import API
+        m = API()
+        d = m.definitions.document_types()
+        """
+        url = BASE_URL + '/document_types'
+                
+        return self.parent.make_get_request(url,models.document_types,kwargs)  
+    
 class Annotations(object):
     
     def __init__(self,parent):
@@ -230,6 +315,107 @@ class Annotations(object):
     
     def delete():
         pass
+    
+class Documents(object):
+    
+    def __init__(self,parent):
+        self.parent = parent
+        
+    def get(self,**kwargs):
+        """
+        https://api.mendeley.com/apidocs#!/documents/getDocuments
+        
+        Parameters
+        ----------
+        id : 
+        group_id : string
+            The id of the group that the document belongs to. If not supplied 
+            returns users documents.
+        modified_since : string
+            Returns only documents modified since this timestamp. Should be 
+            supplied in ISO 8601 format.
+        deleted_since : string
+            Returns only documents deleted since this timestamp. Should be 
+            supplied in ISO 8601 format.
+        profile_id : string
+            The id of the profile that the document belongs to, that does not 
+            belong to any group. If not supplied returns users documents.
+        authored :
+            TODO
+        starred : 
+        limit : string or int (default 20)
+            Largest allowable value is 500
+        order :
+            - 'asc' - sort the field in ascending order
+            ' 'desc' - sort the field in descending order            
+        view
+            - 'bib'
+            - 'client'
+            - 'tags'
+            - 'patent'
+            - 'all'
+        sort : string
+            Field to sort on. Avaiable options:
+            - 'created'
+            - 'last_modified'
+            - 'title'
+
+        Examples
+        --------
+        from mendeley import API
+        m = API()
+        d = m.documents.get(limit=1)
+        
+        """
+        
+        url = BASE_URL + '/documents'
+        if 'id' in kwargs:
+            id = kwargs.pop('id')
+            url += '/%s/' % id
+
+        view = kwargs.get('view')
+        response_params = {'fcn':document_fcns[view]}  
+                
+        return self.parent.make_get_request(url,models.DocumentSet.create,kwargs,response_params)  
+        
+    def create(self,kwargs):
+        """
+        https://api.mendeley.com/apidocs#!/documents/createDocument
+        """
+        pass
+    
+    def create_from_file(self,file_path):
+        """
+        TODO: We might want some control over the naming
+        TODO: Support retrieval from another website
+
+        https://api.mendeley.com/apidocs#!/document-from-file/createDocumentFromFileUpload
+        
+        """
+        filename = basename(file_path)
+        headers = {
+            'content-disposition': 'attachment; filename=%s' % filename,
+            'content-type': mimetypes.guess_type(filename)[0]}
+            
+        #TODO: This needs futher work
+        pass
+    
+    def delete(self):
+        """
+        https://api.mendeley.com/apidocs#!/documents/deleteDocument
+        """
+        pass
+    
+    def update(self):
+        """
+        https://api.mendeley.com/apidocs#!/documents/updateDocument
+        """
+        pass
+    
+    def move_to_trash(self):
+        pass
+    
+    
     
 class MetaData(object):
 #https://api.mendeley.com/apidocs#!/metadata/getDocumentIdByMetadata    
