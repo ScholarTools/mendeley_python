@@ -7,14 +7,16 @@ from mendeley import API
 
 #Retrieval of all available academic statuses
 m = API()
-academic_statuses = m.academic_statuses()
+academic_statuses = m.definitions.academic_statuses()
+
+import pdb
+pdb.set_trace()
 
 
 
-
-
-
-
+"""
+#This is old code
+#------------------------------------------------------------------------------
 
 um  = mapi.UserMethods()
 wtf = um.docs_get_details()
@@ -46,3 +48,4 @@ pdb.set_trace()
 
 
 #pdb.set_trace()
+"""

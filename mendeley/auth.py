@@ -4,6 +4,12 @@
 This module is meant to handle things related to authentication for the
 Mendeley API.
 
+In general it is better to interact with the API directly, rather than
+interacting with this module.
+
+
+
+
 The interface for this code is currently in flux. The main pieces of the code
 are in place but I'm working on rearranging them.
 
@@ -35,6 +41,92 @@ import os
 
 from . import utils
 from . import config
+
+"""
+-------------------------------------------------------------------------------
+These are methods that other modules might want to access directly.
+
+"""
+
+def retrieve_public_credentials():
+
+    """
+    Loads public cre
+
+    Returns:
+    --------
+    PublicCredentials    
+    """
+    
+    if PublicCredentials.token_exists_on_disk():
+        return PublicCredentials.load()
+    else:
+        r = PublicCredentials._make_request_for_token()
+        
+        pat = PublicCredentials(r)
+    
+        pat.save()    
+    
+        return pat
+        
+def retrieve_user_credentials():
+    pass
+        
+"""
+-------------------------------------------------------------------------------
+"""
+#%% 
+
+"""
+-------------------------------------------------------------------------------
+Token creation methods.
+"""
+
+def get_user_credentials_no_prompts(user_name=None, password=None, save=True):
+
+    """
+    This function returns an access token for accessing user information. It 
+    does so without requiring any user prompts. As such it requires the user
+    to enter their password into this function OR Alternatively if the values 
+    are not provided the code will attempt to load them from the config file.    
+    
+    Parameters:
+    -----------
+    user_name : str (default None)
+        The user name as prompted by Mendeley. This is usually the email
+        address used to log into Mendeley.
+    password : str
+        The password associated with the account. This is currently only used 
+        in order to get the access token.
+    save : boolean (default True)
+        If true the credentials will be saved locally (to disk) for reuse
+        at later times.
+        
+    Returns
+    -------
+    UserCredentials
+        This token can be used to request information from the user's account.
+    
+    """
+    
+    if user_name is None:
+        du = config.DefaultUser
+        user_name = du.user_name
+        password = du.password
+
+    code  = _get_authorization_code_auto(user_name, password)
+    token = trade_code_for_user_access_token(code)
+    
+    if save:
+        token.save()
+        
+    return token
+
+"""
+-------------------------------------------------------------------------------
+"""
+#%% 
+
 
 class _Credentials(AuthBase):
     
@@ -203,7 +295,17 @@ class UserCredentials(_Credentials):
                    
         r = requests.post(URL,auth=client_auth,data=post_data)
       
+        #Observed errors:
+        #----------------------------------
+        #1) {"error":"invalid_grant","error_description":"Invalid grant"}
+        #
+        # - Seems to have been fixed by deleting the pickled version of this
+        #   class that was associated with the user in /data/credentials
+              
         if r.status_code != requests.codes.ok:
+            print(r.text)
+            import pdb
+            pdb.set_trace()
             raise Exception('TODO: Fix me, request failed ...')
       
         self.populate_token_from_JSON(r.json())
@@ -261,15 +363,15 @@ class UserCredentials(_Credentials):
         if user_name is None:
             du = config.DefaultUser
             user_name = du.user_name
-            
-        #TODO: Check the user_name is not empty
+        elif user_name == '':
+            raise Exception('specified user_name must be a non-empty string or None')
             
         return user_name
     
-    @staticmethod
-    def does_token_exist(user_name):
-        pass
-        #TODO: Allow user to see if the token exists
+    @classmethod
+    def does_token_exist(cls,user_name):
+        load_path = cls.get_file_path(user_name)
+        return os.path.isfile(load_path)
     
     @classmethod
     def load(cls, user_name = None, create_if_missing = True):
@@ -279,7 +381,7 @@ class UserCredentials(_Credentials):
         
         Parameters
         ----------
-        user_name : str
+        user_name : string (default None)
             If the user_name is not passed in then a default user should be
             defined in the config file.
         """
@@ -305,14 +407,6 @@ class UserCredentials(_Credentials):
                           
         return temp    
 
-#TODO: This will provide a URL for the user
-#that can then go to a web browser and get the json
-#which would then be pasted into some popup screen
-#
-#Perhaps this would use Selenium?
-def _get_authorization_code_manually():
-    pass
-
 def _get_authorization_code_auto(user_name,password):
     
     """
@@ -321,18 +415,20 @@ def _get_authorization_code_auto(user_name,password):
 
     Rough OAUTH Outline
     -------------------
-    1) User askes to use client
-    2) Client gives User some information to give to Mendeley
+    1) User askes to use client (i.e. this code or an "app")
+    2) Client gives User some information to give to Mendeley regarding
+    the Client so that Mendeley can connnect the user to the Client.
     3) User gives the Client info to Mendeley along with user's id & pass, 
     and Mendeley gives the User some information (the authorization code) to 
     give to the Client.
     4) Client now has the information it needs to make requests for the 
-    User's data
+    User's data. In most cases (although not this one) this would allow the
+    User to never give it's Mendeley credentials to the client.
     
     Parameters
     ----------
     user_name : string
-    
+        This is typically an email address.
     password : string
         
     """    
@@ -373,54 +469,8 @@ def _get_authorization_code_auto(user_name,password):
     user = UserInfo(user_name,password,authorization_code)    
     
     return user
- 
-#TODO: Finish this ...
-def get_user_credentials_with_prompts(save=True):
-    pass
+  
 
- 
-def get_user_credentials_no_prompts(user_name=None, password=None, save=True):
-
-    """
-    This function returns an access token for accessing user information. It 
-    does so without requiring any user prompts. As such it requires the user
-    to enter their password into this function OR Alternatively if the values 
-    are not provided the code will attempt to load them from the config file.    
-    
-    Parameters:
-    -----------
-    user_name : str (default None)
-        The user name as prompted by Mendeley. This is usually the email
-        address used to log into Mendeley.
-    password : str
-        The password associated with the account. This is currently only used 
-        in order to get the access token.
-    save : boolean (default True)
-        If true the credentials will be saved locally (to disk) for reuse
-        at later times.
-        
-    Returns
-    -------
-    UserCredentials
-        This token can be used to request information from the user's account.
-    
-    """
-    
-    if user_name is None:
-        du = config.DefaultUser
-        user_name = du.user_name
-        password = du.password
-        
-        #du  = config.DefaultUser
-#auth.get_user_access_token_no_prompts(du.user_name,du.password)
-
-    code  = _get_authorization_code_auto(user_name, password)
-    token = trade_code_for_user_access_token(code)
-    
-    if save:
-        token.save()
-        
-    return token
 
 def trade_code_for_user_access_token(user):
              
@@ -682,32 +732,5 @@ class PublicCredentials(_Credentials):
 
 
 
-def _get_public_credentials():
 
-    """
-    Get's credentials needed for making public requests. This is the 
-    authentication info needed for the client.
-    
-    In general it is not necessary to call this function directly. Instead one
-    should just call the Public Methods API Constructor.
-    
-    Returns:
-    --------
-    PublicCredentials
-    
-    See Also:
-    .api.PublicMethods
-    
-    """
-    
-    if PublicCredentials.token_exists_on_disk():
-        return PublicCredentials.load()
-    else:
-        r = PublicCredentials._make_request_for_token()
-        
-        pat = PublicCredentials(r)
-    
-        pat.save()    
-    
-        return pat
   

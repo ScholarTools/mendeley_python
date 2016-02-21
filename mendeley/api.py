@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-
 This module is meant to implement all functions described at:
-http://dev.mendeley.com/methods/
+
+    http://dev.mendeley.com/methods/
 
 General Usage
 -------------
@@ -14,7 +14,8 @@ Request Options
 ---------------
 In addition to the options of a given function, the following options are also
 supported:
-TODO: fill this in: example _return_type
+
+    TODO: fill this in: example _return_type
 
 TODO: Create an options class that can be given to the request (e.g. for return type)
 
@@ -26,9 +27,25 @@ Improvements
 - disciplines
 
 
-Methods
--------
-academic_statuses
+Method Types (from Mendeley)
+----------------------------
+Annotations
+Academic Statuses
+Catalog Documents
+Catalog Search
+Datasets
+Disciplines
+Documents
+Documents Metadata Lookup
+Files
+File Content
+Folders
+Groups
+Identifier Types
+Locations
+Profiles
+Trash
+Errors
 
 """
 
@@ -49,20 +66,22 @@ import pdb
 from . import models
 
 
-BASE_URL = 'https://api.mendeley.com' 
-catalog_fcns = {None:models.CatalogDocument,
-                'bib':models.BibCatalogDocument,
-               'stats':models.StatsCatalogDocument,
-               'client':models.ClientCatalogDocument,
-               'all':models.AllCatalogDocument
+BASE_URL = 'https://api.mendeley.com'
+
+#For each view, specify which object type should be returned 
+catalog_fcns = {None    : models.CatalogDocument,
+                'bib'   : models.BibCatalogDocument,
+                'stats' : models.StatsCatalogDocument,
+                'client': models.ClientCatalogDocument,
+                'all'   : models.AllCatalogDocument
                }
 
-document_fcns = {None:models.Document,
-                'bib':models.BibDocument,
-                'client':models.ClientDocument,
-               'tags':models.TagsDocument,
-               'stats':models.StatsDocument,
-               'all':models.AllDocument
+document_fcns = {None   : models.Document,
+                'bib'   : models.BibDocument,
+                'client': models.ClientDocument,
+                'tags'  : models.TagsDocument,
+                'stats' : models.StatsDocument,
+                'all'   : models.AllDocument
                }
 
 class API(object):
@@ -86,17 +105,28 @@ class API(object):
         """
         Parameters
         ----------
-        user_name :
+        user_name : string (default None)
+            - None : then the default user is loaded via config.DefaultUser
+            - 'public' : then the public API is accessed
+        
         """
+        
+        if user_name == 'public':
+            self.public_only = True
+            token = auth.retrieve_public_credentials()
+        else:
+            self.public_only = False    
+            token = auth.UserCredentials.load(user_name)
+            
         #TODO: Decide how I want to handle this
         #In the old approach None means use the default user ...
-        self.public_only = False        
+           
         #self.public_only = user_name is None
         
         #if user_name is None:
-        #    token = auth._get_public_credentials()
+        #    
         #else:
-        token = auth.UserCredentials.load(user_name)
+        
        
        #TODO: Add on printing of object with methods and default options
         
@@ -109,6 +139,9 @@ class API(object):
         self.annotations = Annotations(self)
         self.definitions = Definitions(self)
         self.documents = Documents(self)
+
+    def __repr__(self):
+        return 
 
     @property
     def user_name(self):
@@ -206,6 +239,8 @@ class API(object):
         
         """
         
+        TODO: This should probably be moved ...        
+        
         Parameters
         ----------
         arxiv
@@ -286,7 +321,7 @@ class Definitions(object):
         """
         url = BASE_URL + '/disciplines'
                 
-        return self.make_get_request(url,models.disciplines,kwargs)
+        return self.parent.make_get_request(url,models.disciplines,kwargs)
 
         
     def document_types(self,**kwargs):
@@ -348,7 +383,7 @@ class Documents(object):
         order :
             - 'asc' - sort the field in ascending order
             ' 'desc' - sort the field in descending order            
-        view
+        view : 
             - 'bib'
             - 'client'
             - 'tags'
@@ -374,7 +409,8 @@ class Documents(object):
             url += '/%s/' % id
 
         view = kwargs.get('view')
-        response_params = {'fcn':document_fcns[view]}  
+        limit = kwargs.get('limit',20)
+        response_params = {'fcn':document_fcns[view],'view':view,'limit':limit}  
                 
         return self.parent.make_get_request(url,models.DocumentSet.create,kwargs,response_params)  
         

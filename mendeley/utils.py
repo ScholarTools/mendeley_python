@@ -6,6 +6,21 @@
 import os
 import inspect
 
+def get_list_class_display(value):
+    """
+    TODO: Go from a list of objects to:
+    [class name] len(#)
+    """
+    if isinstance(value,list):
+        #Check for 0 length
+        if len(value) == 0:
+            return u'[??] len(0)'
+        else:
+            return u'[%s] len(%d)' % (value[0].__class__.__name__,len(value))
+        #run the code
+    else:
+        return u'%s'%value
+    pass
 
 def get_truncated_display_string(input_string,max_length = 30):
     if len(input_string) > max_length:

@@ -3,13 +3,24 @@
 
 Models:
 
+See Also
+--------
+mendeley.api => contains the code that makes requests for these models
 
 """
 
 from .utils import get_truncated_display_string as td
+from .utils import get_list_class_display as cld
 
 """
-#This is temporary ...
+These objects are called with the following forms:
+1)  (self,json,m)
+2)  (self,json,m,response_params)
+
+json : json response from the request
+m : mendeley.api.API
+
+
 class WTF(object):
     def __init__(self,json,m):
         import pdb
@@ -27,8 +38,18 @@ class ResponseObject(object):
         self.json = json
 
     def __getattr__(self, name):
+        
+        #This check allows an optional field to be returned as None
+        #even if it isn't in the current json definition
+        #
+        #This however still keeps in place errors like if you ask for:
+        #document.yeear <= instead of year
         if name in self.fields():
-            return self.json.get(name)
+            if name in self.object_fields:
+                method_fh = self.object_fields[name]
+                return method_fh(self.json.get(name))
+            else:
+                return self.json.get(name)
         else:
             raise AttributeError("'%s' object has no attribute '%s'" % (self.__class__.__name__, name))
 
@@ -36,11 +57,22 @@ class ResponseObject(object):
     def __dir__(cls):
         d = set(dir(cls) + cls.fields())
         d.remove('fields')
+        d.remove('object_fields')
 
         return sorted(d)
 
     @classmethod
     def fields(cls):
+        """
+        This should be overloaded by the subclass.
+        """
+        return []
+        
+    @classmethod
+    def object_fields(cls):
+        """
+        This should be overloaded by the subclass.
+        """
         return []
 
 class Annotation(object):
@@ -49,6 +81,7 @@ class Annotation(object):
         import pdb
         pdb.set_trace()
 
+#%%
 def academic_statuses(json,m):
     """
     The json contains a list of dictionaries but each dictionary
@@ -72,6 +105,8 @@ def disciplines(json,m):
 def document_types(json,m):
     
     return json
+
+#%%
 
 class ProfileInfo(object):
     
@@ -105,7 +140,9 @@ class ProfileInfo(object):
 
 
 class DocumentSet(object):
-    
+    """
+    Responsible for managing a set of documents.
+    """
     
     def __init__(self,json,m,params):
         """
@@ -113,14 +150,20 @@ class DocumentSet(object):
         ----------
         json : dict
         m : mendeley.api._APIMethods
+        
+        
         """
         #TODO: build in next and prev support
         self.links = m.last_response.links
+        self.api = m
+        self.response_params = params
                 
         fcn = params['fcn']
+        
         #TODO: Figure out how to support lazy loading
         #TODO: Support view construction
         self.docs = [fcn(x,m) for x in json]
+        self.view = params['view']
     
     #TODO: These will need to call some common function
     #That function will need to figure out how to call pages
@@ -128,9 +171,14 @@ class DocumentSet(object):
     
     @classmethod
     def create(cls,json,m,params):
+        """
+        I believe this distinction was made to distinguish between instances
+        in which a set was required or instances in which by definition
+        only a single document would be returned. 
         
-        #Callers
-        #- catalog
+        This however needs to be clarified.
+        """
+
         if isinstance(json,list):
             return DocumentSet(json,m,params)
         else:
@@ -141,7 +189,9 @@ class DocumentSet(object):
         pass
     
     def next_page(self):
-        pass
+        next_info = self.links['next']
+        next_url = next_info['url']
+        return self.api.make_get_request(next_url,DocumentSet,None,self.response_params)
     
     def previous_page(self):
         pass
@@ -149,27 +199,101 @@ class DocumentSet(object):
     def last_page(self):
         pass
       
-    #def __repr__(self):
-    #    pass
+    def __repr__(self):
+        #TODO: Include more ...
+        return u'' + \
+           '   links: %s\n' % self.links.keys()
+           
 
                
 class Document(ResponseObject):
     
+    """
+    Attributes
+    ----------
+    source
+    year
+    identifiers
+    id : string
+        Identifier (UUID) of the document. This identifier is set by the server 
+        on create and it cannot be modified.
+    type
+    created
+    profile_id
+    last_modified
+    title
+    authors
+    keywords
+    abstract
+    
+
+    #TODO: Incorporate below into above ...        
+    type : string
+        The type of the document. Supported types: journal, book, generic, 
+        book_section, conference_proceedings, working_paper, report, web_page, 
+        thesis, magazine_article, statute, patent, newspaper_article, 
+        computer_program, hearing, television_broadcast, encyclopedia_article, 
+        case, film, bill.
+    title : string (Required)
+        Title of the document.
+    profile_id : string
+        Profile id (UUID) of the Mendeley user that added the document to 
+        the system.
+    group_id : string (Not always present)
+        Group id (UUID) that the document belongs to.
+    created : string
+    last_modified : string
+    abstract : string (Not always present)
+    source : string
+        Publication outlet, i.e. where the document was published.
+    authors : [Person]
+    identifiers : [DocumentIdentifiers]
+    keywords : string (Not always present)
+        List of author-supplied keywords for the document.
+    
+    
+    """
     def __init__(self,json,m):
         super(Document, self).__init__(json)
     
+    def _null(self):
+        """
+        TODO: Ask on SO about this, is there an alternative approach?
+        It does expose tab completion in Spyder ...
+        """
+        self.source = None
+        self.year = None
+        self.identifiers = None
+        self.id = None
+        self.type = None
+        self.created = None
+        self.profile_id = None
+        self.last_modified = None
+        self.title = None
+        self.authors = None
+        self.keywords = None
+        self.abstract = None
+    
     @classmethod
     def fields(cls):
-        return ['id','profile_id','source','title','type','year']
+        return ['source', 'year', 'identifiers', 'id', 'type', 'created', 
+        'profile_id', 'last_modified', 'title', 'authors', 'keywords', 
+        'abstract']
         
-    def obj_fields(cls):
-        return ['created','last_modified']
-        
+    @property
+    def object_fields(self):
+        return {'authors':Person.initialize_array}
+                
     def __repr__(self):
+        #TODO: Set this up like it looks in Mendeley
         return u'' + \
             '      created: %s\n' % self.created + \
             'last_modified: %s\n' % self.last_modified + \
-            '           id: %s\n' % self.id
+            '           id: %s\n' % self.id + \
+            '         type: $s\n' % self.type + \
+            '        title: %s\n' % td(self.title) \
+            '      authors: %s\n' % cld(self.authors) #TODO: Might instead create a representation string like Smith & Lee or Smith et al. (Lee)
+            '
 
 #???? How does this compare to 
 class BibDocument(Document):
@@ -198,8 +322,15 @@ class StatsDocument(Document):
 class AllDocument(Document):
     pass
 
+#%%
+"""
+Catalog Documents
+"""
+
 class CatalogDocument(object):
     """
+    
+    TODOO: This id old and needs to up updated like
     Attributes
     ----------
     
@@ -284,6 +415,10 @@ class AllCatalogDocument(CatalogDocument):
 #This would involve throwing a switch above
 class CoreDocument(object):
     """
+
+    **OLD**
+    This will be deleted once I incorporate it into "Document" above    
+    
     Attributes
     ----------
     id : string
@@ -362,28 +497,28 @@ class CoreDocument(object):
             #TODO: For objects or none, have function
             #which displays size and object type or None
 
-class BibDocument(object):
-    pass
-
-class StatsDocument(object):
-    pass
-
-class ClientDocument(object):
-    pass
-
-class CatalogAllDocument(object):
-    pass              
+#%%
             
 class DocumentIdentifiers(object):
     
     def __init__(self,json):
         pass        
     
-class Person(object):
+class Person(ResponseObject):
     """
-    http://dev.mendeley.com/methods/?python#people
-    #TODO: Check out slots for this ...
     """
-    def __init__(self,json):
-        self.first_name = json['first_name']
-        self.last_name = json['last_name']
+    @classmethod
+    def fields(cls):
+        return ['first_name', 'last_name']
+    
+    def _null(self):
+        self.first_name = None
+        self.last_name = None
+     
+    def initialize_array(json):
+        return [Person(x) for x in json]
+    
+    def __repr__(self):
+        return u'' + \
+            'first_name: %s\n' % self.created + \
+            ' last_name: %s\n' % self.last_modified + \
