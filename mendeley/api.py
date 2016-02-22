@@ -80,7 +80,7 @@ document_fcns = {None   : models.Document,
                 'bib'   : models.BibDocument,
                 'client': models.ClientDocument,
                 'tags'  : models.TagsDocument,
-                'stats' : models.StatsDocument,
+                'patent': models.PatentDocument,
                 'all'   : models.AllDocument
                }
 
@@ -379,14 +379,15 @@ class Documents(object):
             TODO
         starred : 
         limit : string or int (default 20)
-            Largest allowable value is 500
+            Largest allowable value is 500. This is really the page limit since
+            the iterator will exceed this ...
         order :
             - 'asc' - sort the field in ascending order
             ' 'desc' - sort the field in descending order            
         view : 
             - 'bib'
             - 'client'
-            - 'tags'
+            - 'tags' : returns user's tags
             - 'patent'
             - 'all'
         sort : string

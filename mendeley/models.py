@@ -9,8 +9,12 @@ mendeley.api => contains the code that makes requests for these models
 
 """
 
+from collections import OrderedDict as ODict
+
 from .utils import get_truncated_display_string as td
 from .utils import get_list_class_display as cld
+
+from . import utils
 
 """
 These objects are called with the following forms:
@@ -32,7 +36,17 @@ class WTF2(object):
         pdb.set_trace()    
 """
 
+
+
+#%%
+
 class ResponseObject(object):
+    
+    #I made this a property so that the user could change this processing
+    #if they wanted. For example, this would allow the user to return authors
+    #as just the raw json (from a document) rather than creating a list of 
+    #Persons
+    object_fields = {}    
     
     def __init__(self,json):
         self.json = json
@@ -45,11 +59,14 @@ class ResponseObject(object):
         #This however still keeps in place errors like if you ask for:
         #document.yeear <= instead of year
         if name in self.fields():
-            if name in self.object_fields:
+            value = self.json.get(name)
+            if value is None:
+                return None
+            elif name in self.object_fields:
                 method_fh = self.object_fields[name]
-                return method_fh(self.json.get(name))
+                return method_fh(value)
             else:
-                return self.json.get(name)
+                return value
         else:
             raise AttributeError("'%s' object has no attribute '%s'" % (self.__class__.__name__, name))
 
@@ -67,13 +84,45 @@ class ResponseObject(object):
         This should be overloaded by the subclass.
         """
         return []
+
+#%%
+class DocumentIdentifiers(ResponseObject):
         
     @classmethod
-    def object_fields(cls):
-        """
-        This should be overloaded by the subclass.
-        """
-        return []
+    def fields(cls):
+        return ['pmid', 'issn', 'doi', 'isbn', 'arxiv']
+        
+    def _null(self):
+        self.pmid = None
+        self.issn = None
+        self.doi = None
+        self.isbn = None
+        self.arxiv = None
+
+    def __repr__(self):
+        pv = ['pmid',self.pmid,'doi',self.doi,'issn',self.issn,
+              'isbn',self.isbn,'arxiv',self.arxiv]
+        return utils.property_values_to_string(pv)
+    
+class Person(ResponseObject):
+    """
+    """
+    @classmethod
+    def fields(cls):
+        return ['first_name', 'last_name']
+    
+    def _null(self):
+        self.first_name = None
+        self.last_name = None
+     
+    def initialize_array(json):
+        return [Person(x) for x in json]
+    
+    def __repr__(self):
+        return u'' + \
+            'first_name: %s\n' % self.first_name + \
+            ' last_name: %s\n' % self.last_name
+    
 
 class Annotation(object):
     
@@ -169,6 +218,17 @@ class DocumentSet(object):
     #That function will need to figure out how to call pages
     #outside of the typical function calls
     
+    def __iter__(self):
+        """
+        
+        """
+        page = self
+        while page:
+            for single_doc in page.docs:
+                yield single_doc
+                
+            page = page.next_page()
+    
     @classmethod
     def create(cls,json,m,params):
         """
@@ -184,14 +244,19 @@ class DocumentSet(object):
         else:
             fcn = params['fcn']
             return fcn(json,m)
+
+    #TODO: We should probably include a navigation method, similar
+    #to Page in mendeley.pagination
         
     def first_page(self):
         pass
     
     def next_page(self):
-        next_info = self.links['next']
-        next_url = next_info['url']
-        return self.api.make_get_request(next_url,DocumentSet,None,self.response_params)
+        if 'next' not in self.links:
+            return None
+        else:
+            next_url = self.links['next']['url']
+            return self.api.make_get_request(next_url,DocumentSet,None,self.response_params)
     
     def previous_page(self):
         pass
@@ -204,55 +269,73 @@ class DocumentSet(object):
         return u'' + \
            '   links: %s\n' % self.links.keys()
            
+"""
+        page = self._list(page_size, **kwargs)
+
+        while page:
+            for item in page.items:
+                yield item
+
+            page = page.next_page
+"""
 
                
 class Document(ResponseObject):
     
     """
+
+    Possible methods to add:
+    ------------------------
+    update
+    delete
+    move_to_trash
+    attach_file
+    add_note
+    
+    
+    
     Attributes
     ----------
-    source
+    source : string
+        Publication outlet, i.e. where the document was published.
     year
-    identifiers
+    identifiers : [DocumentIdentifiers]
     id : string
         Identifier (UUID) of the document. This identifier is set by the server 
         on create and it cannot be modified.
-    type
-    created
-    profile_id
-    last_modified
-    title
-    authors
-    keywords
-    abstract
-    
-
-    #TODO: Incorporate below into above ...        
     type : string
         The type of the document. Supported types: journal, book, generic, 
         book_section, conference_proceedings, working_paper, report, web_page, 
         thesis, magazine_article, statute, patent, newspaper_article, 
         computer_program, hearing, television_broadcast, encyclopedia_article, 
         case, film, bill.
-    title : string (Required)
-        Title of the document.
+    created
     profile_id : string
         Profile id (UUID) of the Mendeley user that added the document to 
         the system.
+    last_modified
+    title : string
+        Title of the document.
+    authors : [Person]
+    keywords : list
+        List of author-supplied keywords for the document.
+    abstract : string
+    
+
+    #TODO: Incorporate below into above ...
     group_id : string (Not always present)
         Group id (UUID) that the document belongs to.
     created : string
     last_modified : string
-    abstract : string (Not always present)
-    source : string
-        Publication outlet, i.e. where the document was published.
-    authors : [Person]
-    identifiers : [DocumentIdentifiers]
-    keywords : string (Not always present)
-        List of author-supplied keywords for the document.
     
     
+    authors :     
     """
+
+    object_fields = {
+        'authors': Person.initialize_array,
+        'identifiers': DocumentIdentifiers}    
+    
     def __init__(self,json,m):
         super(Document, self).__init__(json)
     
@@ -261,67 +344,142 @@ class Document(ResponseObject):
         TODO: Ask on SO about this, is there an alternative approach?
         It does expose tab completion in Spyder ...
         """
-        self.source = None
-        self.year = None
+        self.source = None #
+        self.year = None #
         self.identifiers = None
-        self.id = None
-        self.type = None
-        self.created = None
-        self.profile_id = None
-        self.last_modified = None
-        self.title = None
-        self.authors = None
+        self.id = None #
+        self.type = None #
+        self.created = None #
+        self.profile_id = None #
+        self.last_modified = None #
+        self.title = None #
+        self.authors = None #
         self.keywords = None
-        self.abstract = None
+        self.abstract = None #
     
     @classmethod
     def fields(cls):
         return ['source', 'year', 'identifiers', 'id', 'type', 'created', 
         'profile_id', 'last_modified', 'title', 'authors', 'keywords', 
         'abstract']
-        
-    @property
-    def object_fields(self):
-        return {'authors':Person.initialize_array}
                 
-    def __repr__(self):
+    def __repr__(self,pv_only=False):
         #TODO: Set this up like it looks in Mendeley
-        return u'' + \
-            '      created: %s\n' % self.created + \
-            'last_modified: %s\n' % self.last_modified + \
-            '           id: %s\n' % self.id + \
-            '         type: $s\n' % self.type + \
-            '        title: %s\n' % td(self.title) \
-            '      authors: %s\n' % cld(self.authors) #TODO: Might instead create a representation string like Smith & Lee or Smith et al. (Lee)
-            '
+        pv = ['profile_id',self.profile_id,
+                'created',self.created,
+                'last_modified',self.last_modified,
+                'id',self.id,
+                'type',self.type,
+                'title',td(self.title),
+                'authors',cld(self.authors),
+                'source',self.source,
+                'year',self.year,
+                'abstract',td(self.abstract),
+                'keywords',td(self.keywords),
+                'identifiers',cld(self.identifiers)]
+        if pv_only:
+            return pv
+        else:
+            return utils.property_values_to_string(pv)
+                
+
 
 #???? How does this compare to 
 class BibDocument(Document):
 
     def __init__(self,json,m):
         super(BibDocument, self).__init__(json,m)
+        #s1 = set(json.keys())
+        #s2 = set(Document.fields())
+        #s1.difference_update(s2)
+
+    def _null(self):
+        self.issue = None #
+        self.pages = None #
+        self.volume = None #
+        self.websites = None #
 
     @classmethod
     def fields(cls):
-        return super(BibDocument, self).fields() + \
+        return super(BibDocument, cls).fields() + \
             ['issue','pages','volume','websites']
             
     def __repr__(self):
-        return super(BibDocument, self).__repr__() + \
-            'issue: %s\n' + self.issue
+        pv = (super(BibDocument, self).__repr__(pv_only=True) + 
+            ['issue',self.issue,'pages',self.pages,
+            'volume',self.volume,'websites',td(self.websites)])
+            
+        return utils.property_values_to_string(pv)
 
 class ClientDocument(Document):
-    pass
+    
+    """
+    Attributes
+    ----------
+    authored
+    confirmed :
+        Flag to identify whether the metadata of the document is correct after 
+        it has been extracted from the PDF file.
+        ???? Needs review or that the user has updated it since being added via pdf ?
+    file_attached
+    hidden :
+        Does this mean that it has been excluded from Mendeley's catalog?
+    read
+    starred    
+    
+    """
+    def __init__(self,json,m):
+        super(ClientDocument, self).__init__(json,m)
+
+    def _null(self):
+        self.authored = None #
+        self.confirmed = None #
+        self.file_attached = None #
+        self.hidden = None #
+        self.read = None #
+        self.starred = None #
+        
+
+    @classmethod
+    def fields(cls):
+        return (super(ClientDocument, cls).fields() + 
+            ['hidden', 'file_attached', 'authored', 'read', 'starred', 'confirmed'])
+
+    def __repr__(self):
+        pv = (super(ClientDocument, self).__repr__(pv_only=True) + 
+            ['hidden',self.hidden,'file_attached',self.file_attached,
+            'authored',self.authored,'read',self.read,
+            'starred',self.starred,'confirmed',self.confirmed])
+            
+        return utils.property_values_to_string(pv)
 
 class TagsDocument(Document):
-    pass
+    
+    """
+    Attributes
+    ----------
+    tags :
+        The user contributed strings
+    """
+    def __init__(self,json,m):
+        super(TagsDocument, self).__init__(json,m)
 
-class StatsDocument(Document):
-    pass
+    def _null(self):
+        self.tags = None #
+
+    @classmethod
+    def fields(cls):
+        return (super(TagsDocument, cls).fields() + ['tags'])
+
+    def __repr__(self):
+        pv = (super(TagsDocument, self).__repr__(pv_only=True) + ['tags',td(self.tags)])
+        return utils.property_values_to_string(pv)
 
 class AllDocument(Document):
     pass
 
+class PatentDocument(Document):
+    pass
 #%%
 """
 Catalog Documents
@@ -411,114 +569,7 @@ class AllCatalogDocument(CatalogDocument):
         #TODO: Not yet implemented
         pass
 
-#TODO: There are multiple views which should be suppported
-#This would involve throwing a switch above
-class CoreDocument(object):
-    """
-
-    **OLD**
-    This will be deleted once I incorporate it into "Document" above    
-    
-    Attributes
-    ----------
-    id : string
-        Identifier (UUID) of the document. This identifier is set by the server 
-        on create and it cannot be modified.
-    type : string
-        The type of the document. Supported types: journal, book, generic, 
-        book_section, conference_proceedings, working_paper, report, web_page, 
-        thesis, magazine_article, statute, patent, newspaper_article, 
-        computer_program, hearing, television_broadcast, encyclopedia_article, 
-        case, film, bill.
-    title : string (Required)
-        Title of the document.
-    profile_id : string
-        Profile id (UUID) of the Mendeley user that added the document to 
-        the system.
-    group_id : string (Not always present)
-        Group id (UUID) that the document belongs to.
-    created : string
-    last_modified : string
-    abstract : string (Not always present)
-    source : string
-        Publication outlet, i.e. where the document was published.
-    authors : [Person]
-    identifiers : [DocumentIdentifiers]
-    keywords : string (Not always present)
-        List of author-supplied keywords for the document.
-    """
-    def __init__(self,json,m):
-        self.raw = json
-        
-        self.id = json['id']
-        self.type = json['type']
-        self.title = json['title']
-        self.profile_id = json['profile_id']
-        self.group_id = json.get('group_id')
-        self.created = json['created']
-        self.last_modified = json['last_modified']
-        self.abstract = json.get('abstract')
-        self.source = json['source']
-        #self.authors = json['authors']
-        #self.identifiers = json['identifiers']
-        self.keywords = json.get('keywords')
-        
-        #for key in json:
-        #    setattr(self,key,json[key])
-     
-     
-    @property
-    def authors(self):
-        if 'authors' in self.raw:
-            return [Person(x) for x in self.raw['authors']]
-        else:
-            return None
-            
-    @property
-    def identifiers(self):
-        if 'identifiers' in self.raw:
-            return DocumentIdentifiers(self.raw['identifiers'])
-        else:
-            return None
-
-    def __repr__(self):
-        #Not yet finished
-        return \
-            '           id : %s\n' % (self.id) +\
-            '         type : %s\n' % (self.type) +\
-            '        title : %s\n' % td(self.title) +\
-            '   profile_id : %s\n' % self.profile_id +\
-            '     group_id : %s\n' % self.group_id +\
-            '      created : %s\n' % self.created +\
-            'last_modified : %s\n' % self.last_modified +\
-            '     abstract : %s\n' % td(self.abstract) + \
-            '       source : %s\n' % td(self.source)
-            
-            #TODO: For objects or none, have function
-            #which displays size and object type or None
-
 #%%
             
-class DocumentIdentifiers(object):
-    
-    def __init__(self,json):
-        pass        
-    
-class Person(ResponseObject):
-    """
-    """
-    @classmethod
-    def fields(cls):
-        return ['first_name', 'last_name']
-    
-    def _null(self):
-        self.first_name = None
-        self.last_name = None
-     
-    def initialize_array(json):
-        return [Person(x) for x in json]
-    
-    def __repr__(self):
-        return u'' + \
-            'first_name: %s\n' % self.created + \
-            ' last_name: %s\n' % self.last_modified + \
+
+
