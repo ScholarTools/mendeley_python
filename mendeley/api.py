@@ -378,7 +378,7 @@ class Documents(object):
         starred : 
         limit : string or int (default 20)
             Largest allowable value is 500. This is really the page limit since
-            the iterator will exceed this ...
+            the iterator will allow exceeding this value.
         order :
             - 'asc' - sort the field in ascending order
             ' 'desc' - sort the field in descending order            

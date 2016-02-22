@@ -3,11 +3,10 @@
 Example function calls
 """
 
-from mendeley import API
+from mendeley import client_library
 
-#Retrieval of all available academic statuses
-m = API()
-academic_statuses = m.definitions.academic_statuses()
+temp = client_library.UserLibrary()
+
 
 import pdb
 pdb.set_trace()
