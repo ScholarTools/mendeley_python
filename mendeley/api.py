@@ -64,6 +64,7 @@ from . import auth
 import requests
 import pdb
 from . import models
+from . import utils
 
 
 BASE_URL = 'https://api.mendeley.com'
@@ -114,9 +115,11 @@ class API(object):
         if user_name == 'public':
             self.public_only = True
             token = auth.retrieve_public_credentials()
+            self.user_name = 'public'
         else:
             self.public_only = False    
             token = auth.UserCredentials.load(user_name)
+            self.user_name = token.user_name
             
         #TODO: Decide how I want to handle this
         #In the old approach None means use the default user ...
@@ -141,14 +144,9 @@ class API(object):
         self.documents = Documents(self)
 
     def __repr__(self):
-        return 
-
-    @property
-    def user_name(self):
-        if self.public_only:
-            return None
-        else:
-            return self.access_token.user_name
+        #TODO: Finish all of these ..
+        pv = ['public_only',self.public_only,'user_name',self.user_name]
+        return utils.property_values_to_string(pv)
 
     def make_post_request(self, url, object_fh, params, response_params=None, headers=None):
         
