@@ -3,6 +3,7 @@
 This module is meant to implement all functions described at:
 
     http://dev.mendeley.com/methods/
+    https://api.mendeley.com #nicer interface, more up to date, not complete
 
 General Usage
 -------------
@@ -82,7 +83,8 @@ document_fcns = {None   : models.Document,
                 'client': models.ClientDocument,
                 'tags'  : models.TagsDocument,
                 'patent': models.PatentDocument,
-                'all'   : models.AllDocument
+                'all'   : models.AllDocument,
+                'deleted': models.DeletedDocument
                }
 
 class API(object):
@@ -317,6 +319,7 @@ class Definitions(object):
         m = API()
         d = m.definitions.disciplines()
         """
+        #TODO: This is deprecated ... use subject_areas instead ... (in beta)
         url = BASE_URL + '/disciplines'
                 
         return self.parent.make_get_request(url,models.disciplines,kwargs)
@@ -347,6 +350,14 @@ class Annotations(object):
         pass
     
     def delete():
+        pass
+
+class Trash(object):
+    
+    def __init__(self,parent):
+        self.parent = parent
+        
+    def get(self,**kwargs):
         pass
     
 class Documents(object):
@@ -408,12 +419,19 @@ class Documents(object):
             url += '/%s/' % id
 
         view = kwargs.get('view')
+
+        if 'deleted_since' in kwargs:
+            view = 'deleted'
+        
         limit = kwargs.get('limit',20)
         response_params = {'fcn':document_fcns[view],'view':view,'limit':limit}  
                 
+        #TODO: When returning deleted_since, the format changes and the fcn
+        #called should change
+                
         return self.parent.make_get_request(url,models.DocumentSet.create,kwargs,response_params)  
         
-    def create(self,kwargs):
+    def create(self,**kwargs):
         """
         https://api.mendeley.com/apidocs#!/documents/createDocument
         """

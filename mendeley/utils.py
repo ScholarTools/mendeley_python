@@ -3,6 +3,7 @@
 #TODO: break out display utils to another module
 """
 
+from . import config
 import os
 import inspect
 
@@ -49,7 +50,7 @@ def get_list_class_display(value):
             pdb.set_trace()
         #run the code
     else:
-        return u'%s' % (value.__class__.__name__)
+        return u'<%s>' % (value.__class__.__name__)
 
 def get_truncated_display_string(input_string,max_length = 30):
     if input_string is None:
@@ -78,12 +79,19 @@ def user_name_to_file_name(user_name):
 
 def get_save_root(sub_directories_list,create_folder_if_no_exist=True):
     """
-    We save things in the repo root in a data directory.
+    This function returns the location of the folder in which to save data
+    for a given calling function.
     
-    NOTE: We could eventually change this by referencing a config file ...
+    The default save location is:
+        <repo root>/data
     
-    From there each part of the repo chooses where to save things relative to
-    this base location.
+    This value can be overridden by placing the value 'default_save_path'
+    in the config file.
+    
+    Parameters
+    ----------
+    sub_directories_list : string or list
+    create_folder_if_no_exist : boolean
     
     """
 
@@ -92,12 +100,20 @@ def get_save_root(sub_directories_list,create_folder_if_no_exist=True):
         #is a bit quirky with Python 2 vs 3
         sub_directories_list = [sub_directories_list]
   
-    #http://stackoverflow.com/questions/50499/in-python-how-do-i-get-the-path-and-name-of-the-file-that-is-currently-executin/50905#50905
-    package_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))   
+    if hasattr(config,'default_save_path'):
+        root_path = config.default_save_path
+        if not os.path.isdir(root_path):
+            raise Exception('Specified default save path does not exist')
+    else:
+        #http://stackoverflow.com/questions/50499/in-python-how-do-i-get-the-path-and-name-of-the-file-that-is-currently-executin/50905#50905
+        package_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))   
         
-    #Go up to root, then down to specific save path
-    root_path        = os.path.split(package_path)[0]
-    save_folder_path = os.path.join(root_path, 'data', *sub_directories_list)
+        #Go up to root, then down to specific save path
+        root_path = os.path.split(package_path)[0]
+        root_path = os.path.join(root_path, 'data')
+    
+    
+    save_folder_path = os.path.join(root_path, *sub_directories_list)
 
     if create_folder_if_no_exist and not os.path.exists(save_folder_path):
         os.makedirs(save_folder_path)  

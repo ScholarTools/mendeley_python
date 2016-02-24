@@ -154,6 +154,12 @@ def disciplines(json,m):
 def document_types(json,m):
     
     return json
+    
+def deleted_document_ids(json,m):
+    
+    import pdb
+    pdb.set_trace()
+    return json
 
 #%%
 
@@ -265,21 +271,24 @@ class DocumentSet(object):
         pass
       
     def __repr__(self):
-        #TODO: Include more ...
-        return u'' + \
-           '   links: %s\n' % self.links.keys()
-           
-"""
-        page = self._list(page_size, **kwargs)
+        pv = ['links',self.links.keys(),'docs',cld(self.docs),'view',self.view]
+        return utils.property_values_to_string(pv)
 
-        while page:
-            for item in page.items:
-                yield item
-
-            page = page.next_page
-"""
-
-               
+class DeletedDocument(ResponseObject):
+    
+    def __init__(self,json,m):
+        super(DeletedDocument, self).__init__(json)
+    
+    def _null(self):
+        self.id
+    
+    @classmethod
+    def fields(cls):
+        return ['id']
+        
+    def __repr__(self):
+        return 'id: %s' % self.id
+              
 class Document(ResponseObject):
     
     """

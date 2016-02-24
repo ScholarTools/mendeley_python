@@ -1,0 +1,3 @@
+Bugs
+
+The slate api lists deleted_documents as a method but the other api websites does not. The function still works but it is likely deprecated by using deleted_since in the get method

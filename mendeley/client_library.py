@@ -13,11 +13,17 @@ TODO:
 
 """
 
+#I'm not sure I want to include this c dependency ...
+#from ciso8601 import parse_datetime
+from datetime import datetime
+
 import time
 import os
 import pandas as pd
 import pickle
 
+from .utils import get_truncated_display_string as td
+from .utils import get_list_class_display as cld
 from . import utils
 from .api import API
 
@@ -58,7 +64,14 @@ class UserLibrary():
         self._load()
         
         self.sync()
-        
+     
+    def __repr__(self):
+        pv = ['api',cld(self.api),
+              'user_name',self.user_name,
+              'docs',cld(self.docs),
+                'raw',cld(self.raw)]
+        return utils.property_values_to_string(pv)
+    
     def sync(self):
         if self.raw is None:
             #Get it all
@@ -71,8 +84,40 @@ class UserLibrary():
             self._save()
             print(time.clock() - t2)
             
-            self.docs = self._raw_to_data_frame(raw)
+            self.docs = self._raw_to_data_frame(self.raw)
         else:
+            #Ok, with a lot of messsing around I think the full operation
+            #should be:
+            #1) check trash - remove documents from list
+            #2) check deletd - remove documents from list
+            #3) check modified since, add/update as necessary ...
+        
+            #I think for now to keep things simple we'll relate everything
+            #to the newest last modified value, rather than worrying about
+            #mismatches in time between the client and the server
+            last_updated_idx = self.docs['last_modified'].idxmax()
+            ts_value = self.raw[last_updated_idx]['last_modified']
+            
+            #1) Check trash - need API in place            
+            
+            #2) Check deleted
+            temp = self.api.documents.get(deleted_since = ts_value)
+            deleted_ids = [x.id for x in temp]
+            import pdb
+            pdb.set_trace()
+            
+            #oldest_updated_idx = df['last_modified'].idxmin(
+            
+            import pdb
+            pdb.set_trace()
+            
+            #This only applies to documents that have been deleted
+            #from the trash, how do we find out if documents are in the trash
+            #or not?
+            wtf = self.api.documents.get(deleted_since = ts_value)
+            wtf2 = self.api.documents.get(modified_since = self.raw[last_updated_idx]['last_modified'])
+            import pdb
+            pdb.set_trace()
             #TODO:
             #1) Find newest file, anything since then?
             #2) any deletes?
@@ -87,14 +132,25 @@ class UserLibrary():
         """
         
         """
+        
         #Note that I'm not using the local attribute
         #as we can then use this for updating new information
         df = pd.DataFrame(raw)
 
-        #Changes:
-        #last_modified
-        #created
-        #? authors????
+        #2010-03-16T16:39:02.000Z
+        #https://github.com/closeio/ciso8601
+        #t2 = time.clock()            
+        df['created'] = df['created'].apply(parse_datetime)
+        #print(time.clock() - t2)
+        #strptime("2008-09-03T20:56:35.450686Z", "%Y-%m-%dT%H:%M:%S.%fZ")
+
+        #t2 = time.clock()
+        df['last_modified'] = df['last_modified'].apply(parse_datetime)
+        #print(time.clock() - t2)
+
+        df['issn'] = df['identifiers'].apply(parse_issn)
+        df['pmid'] = df['identifiers'].apply(parse_pmid)
+        df['doi'] = df['identifiers'].apply(parse_doi)
 
         return df
 
@@ -116,4 +172,25 @@ class UserLibrary():
         with open(self.file_path, 'wb') as pickle_file:
             pickle.dump(d,pickle_file)
         
+def parse_datetime(x):
+    return datetime.strptime(x, "%Y-%m-%dT%H:%M:%S.%fZ")
     
+def parse_issn(x):
+    #This value is not necessarily clean
+    #e.g 17517214 => 1751-7214???
+    try:
+        return x.get('issn','')
+    except:
+        return ''
+        
+def parse_pmid(x):
+    try:
+        return x.get('pmid','')
+    except:
+        return ''
+        
+def parse_doi(x):
+    try:
+        return x.get('doi','')
+    except:
+        return ''

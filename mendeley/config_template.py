@@ -24,6 +24,10 @@ class DefaultUser(object):
     password = ''  #e.g. 'password123'
 
 
+#Fill this in to save the data in a location other than the 'data' folder
+#in the root of this repo
+default_save_path = 'C:/box_sync/mendeley_data'
+
 #TODO: I'm not sure what this is ...	
 class UserAPIOptions(object):
 

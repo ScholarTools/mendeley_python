@@ -1,0 +1,3 @@
+cd /Users/name/anaconda/
+xcodebuild -license
+sudo -H pip install ciso8601
