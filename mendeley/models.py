@@ -156,10 +156,10 @@ def document_types(json,m):
     return json
     
 def deleted_document_ids(json,m):
-    
-    import pdb
-    pdb.set_trace()
-    return json
+    """
+    This is for the deleted_documents function.
+    """
+    return [x['id'] for x in json]
 
 #%%
 

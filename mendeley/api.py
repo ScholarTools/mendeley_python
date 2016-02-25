@@ -137,13 +137,14 @@ class API(object):
         
         self.default_return_type = 'object'
         self.access_token = token
-        self.s = requests.Session()
+        self.s = requests.Session() #TODO: I should just use session here ...
         self.last_response = None
         self.last_params = None
         
         self.annotations = Annotations(self)
         self.definitions = Definitions(self)
         self.documents = Documents(self)
+        self.trash = Trash(self)
 
     def __repr__(self):
         #TODO: Finish all of these ..
@@ -358,7 +359,49 @@ class Trash(object):
         self.parent = parent
         
     def get(self,**kwargs):
-        pass
+        """        
+        Parameters
+        ----------
+        id : 
+        group_id : string
+            The id of the group that the document belongs to. If not supplied 
+            returns users documents.
+        modified_since : string
+            Returns only documents modified since this timestamp. Should be 
+            supplied in ISO 8601 format.
+        limit : string or int (default 20)
+            Largest allowable value is 500. This is really the page limit since
+            the iterator will allow exceeding this value.
+        order :
+            - 'asc' - sort the field in ascending order
+            ' 'desc' - sort the field in descending order            
+        view : 
+            - 'bib'
+            - 'client'
+            - 'tags' : returns user's tags
+            - 'patent'
+            - 'all'
+        sort : string
+            Field to sort on. Avaiable options:
+            - 'created'
+            - 'last_modified'
+            - 'title'
+        """
+        
+        url = BASE_URL + '/trash'
+        if 'id' in kwargs:
+            id = kwargs.pop('id')
+            url += '/%s/' % id
+
+        view = kwargs.get('view')
+        
+        limit = kwargs.get('limit',20)
+        response_params = {'fcn':document_fcns[view],'view':view,'limit':limit}  
+                
+        #TODO: When returning deleted_since, the format changes and the fcn
+        #called should change
+                
+        return self.parent.make_get_request(url,models.DocumentSet.create,kwargs,response_params)  
     
 class Documents(object):
     
@@ -431,6 +474,11 @@ class Documents(object):
                 
         return self.parent.make_get_request(url,models.DocumentSet.create,kwargs,response_params)  
         
+        
+    def deleted_files(self,**kwargs):
+        url = BASE_URL + '/deleted_documents'
+        return self.parent.make_get_request(url,models.deleted_document_ids,kwargs)  
+
     def create(self,**kwargs):
         """
         https://api.mendeley.com/apidocs#!/documents/createDocument
