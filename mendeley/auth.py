@@ -36,7 +36,6 @@ These are methods that other modules might want to access directly.
 """
 
 def retrieve_public_credentials():
-
     """
     Loads public credentials
 
@@ -45,19 +44,19 @@ def retrieve_public_credentials():
     PublicCredentials    
     """
     
-    if PublicCredentials.token_exists_on_disk():
+    if PublicCredentials.token_exists_on_disk(user_name='public'):
         return PublicCredentials.load()
     else:
-        r = PublicCredentials._make_request_for_token()
+        return PublicCredentials()
         
-        pat = PublicCredentials(r)
+def retrieve_user_credentials(user_name=None,user_info=None,session=None):
+    """
     
-        pat.save()    
-    
-        return pat
-        
-def retrieve_user_credentials():
-    pass
+    """
+    if UserCredentials.token_exists_on_disk(user_name,user_info):
+        return UserCredentials.load(user_name,user_info,session)
+    else:
+        return UserCredentials(user_name,user_info,session)
         
 """
 -------------------------------------------------------------------------------
@@ -153,15 +152,7 @@ class _Credentials(AuthBase):
         r.headers['Authorization'] =  "bearer " + self.access_token
         
         return r 
-        
-    @classmethod
-    def does_token_exist(cls,user_name):
-        """
-        For public use 'public'
-        """
-        load_path = cls.get_file_path(user_name)
-        return os.path.isfile(load_path)
-        
+                
     @classmethod
     def get_file_path(cls,user_name,create_folder_if_no_exist = False):
         """     
@@ -198,9 +189,93 @@ class _Credentials(AuthBase):
         """
         Saves the class instance to disk.
         """
-        save_path = self.get_file_path(create_folder_if_no_exist = True)
+        save_path = self.get_file_path(self.user_name,create_folder_if_no_exist = True)
         with open(save_path, "wb") as f:
             pickle.dump(self,f)
+
+class PublicCredentials(_Credentials):
+    
+    """
+    TODO: Fill this out    
+    
+    """
+        
+    def __init__(self,session = None):
+        self.user_name ='public'
+        self.populate_session(session)
+        temp_json = self.create_initial_token()
+        self.init_json_attributes(temp_json)
+        self.save()
+
+    def create_initial_token(self):
+
+        """
+        Requests the client token from Mendeley. The results can then be
+        used to construct OR update the object.
+        
+        See Also:
+        ---------------
+        get_public_credentials
+        
+        """
+        URL = 'https://api-oauth2.mendeley.com/oauth/token'
+  
+        payload = {
+            'grant_type'    : 'client_credentials',
+            'scope'         : 'all',
+            'redirect_uri'  : config.Oauth2Credentials.redirect_url,
+            'client_secret' : config.Oauth2Credentials.client_secret,
+            'client_id'     : config.Oauth2Credentials.client_id,
+            }   
+  
+        r = requests.post(URL,data=payload)
+        
+        if r.status_code != requests.codes.ok:
+            raise Exception('Request failed, TODO: Make error more explicit')
+        
+        return r.json()
+
+    def init_json_attributes(self,json):
+        self.access_token = json['access_token']
+        self.token_type = json['token_type']
+        self.expires = datetime.datetime.now(pytz.utc) + datetime.timedelta(seconds=json['expires_in'])
+    
+    def __repr__(self):
+        pv = ['access_token',self.access_token,'token_type',self.token_type,
+              'expires',str(self.expires),'token_expired',self.token_expired]
+        return utils.property_values_to_string(pv)
+                
+    def renew_token(self):
+        temp_json = self.create_initial_token()
+        self.init_json_attributes(temp_json)
+        self.save()
+
+    @classmethod
+    def token_exists_on_disk(cls):
+        """
+        For public use 'public'
+        """
+        load_path = cls.get_file_path('public')
+        return os.path.isfile(load_path)
+        
+    @classmethod
+    def load(cls,session=None):
+        """
+        Loads the class instance from disk.        
+        
+        """
+   
+        load_path = cls.get_file_path()
+        
+        if not os.path.isfile(load_path):
+            raise Exception('Requested token does not exist')
+                       
+        with open(load_path,'rb') as f:
+            self = pickle.load(f)
+         
+        self.populate_session(session)     
+          
+        return self 
 
 class UserCredentials(_Credentials):
     
@@ -233,27 +308,32 @@ class UserCredentials(_Credentials):
     
        
     
-    def __init__(self, user_name=None, user_info=None):
+    def __init__(self, user_name=None, user_info=None, session = None):
         """
         Parameters
         ----------
         json : dict
+        user_name :
         user_info : UserInfo
-            
-        """
-        if user_name is not None:
-            user_info = ConfigUserInfo(user_name)
-            import pdb
-            pdb.set_trace()
         
+        Examples
+        --------
+        UserCredentials(session=my_session) #calls default user           
+           
+        """
+        
+        user_info = self.resolve_user_info(user_name,user_info)
         self.version = 1
+        self.populate_session(session)
         self.user_name = user_info.user_name
-        self.
+        json = self.create_initial_token(user_info)
+        
         self.init_json_attributes(json)
+        self.save()
      
-    @staticmethod   
-    def create_initial_token():
-        pass
+    def create_initial_token(self,user_info):
+        temp = UserTokenRetriever(user_info,self.session)
+        return temp.token_json
         
     def init_json_attributes(self, json):
         """
@@ -261,11 +341,10 @@ class UserCredentials(_Credentials):
         
         Ignoring token_type attribute (generally/always? with 'bearer' value)
         """
-        self.access_token  = json['access_token']
-        self.token_type    = json['token_type']
+        self.access_token = json['access_token']
+        self.token_type = json['token_type']
         self.refresh_token = json['refresh_token']
-        #We'll work with utc just in case someone moves between time zones
-        self.expires       = datetime.datetime.now(pytz.utc) + datetime.timedelta(seconds=json['expires_in'])
+        self.expires = datetime.datetime.now(pytz.utc) + datetime.timedelta(seconds=json['expires_in'])
         
         return None
 
@@ -274,6 +353,24 @@ class UserCredentials(_Credentials):
               'access_token',self.access_token,'token_type',self.token_type,
               'refresh_token',self.refresh_token,'expires',self.expires,
               'token_expired',self.token_expired]
+        return utils.property_values_to_string(pv)
+
+    @classmethod
+    def token_exists_on_disk(cls,user_name=None,user_info=None):
+        """
+        For public use 'public'
+        """
+        
+        user_info = cls.resolve_user_info(user_name,user_info)
+        load_path = cls.get_file_path(user_info.user_name)
+        return os.path.isfile(load_path)
+      
+    @classmethod
+    def resolve_user_info(cls,user_name,user_info):
+        if user_info is None:
+            user_info = ConfigUserInfo(user_name)  
+            
+        return user_info
       
     def renew_token(self):     
         """
@@ -313,7 +410,7 @@ class UserCredentials(_Credentials):
 
         
     @classmethod
-    def load(cls, user_name = None, create_if_missing = True):
+    def load(cls, user_name=None, user_info=None, session = None):
         
         """
         Loads the class instance from disk.        
@@ -329,35 +426,32 @@ class UserCredentials(_Credentials):
         #https://docs.python.org/2/library/pickle.html#pickling-and-unpickling-normal-class-instances
         #would involve using __setstate__
         
+        user_info = cls.resolve_user_info(user_name,user_info)        
         
-        user_name = cls.resolve_user_name(user_name)       
-        load_path = cls.get_file_path(user_name)
+        load_path = cls.get_file_path(user_info.user_name)
         
         #Handle potentially missing file
         #-------------------------------
         if not os.path.isfile(load_path):
-            if create_if_missing:
-                get_user_credentials_no_prompts()
-            else:
-                raise Exception('Requested token does not exist')
+            raise Exception('Requested token does not exist')
                        
         with open(load_path,'rb') as f:
-            temp = pickle.load(f)
+            self = pickle.load(f)
+            
+        self.populate_session(session)
                           
-        return temp    
+        return self    
 
-#%%
 
 class ConfigUserInfo(object):
     
     def __init__(self,user_name):
-        #TODO: populate this based on the config
-        self.user_name_resolved = False
         self.user_name = None
-        pass
+        self.password = None
+        self.type = None
+        self.resolve_user_name(user_name)
     
-        @staticmethod
-    def resolve_user_name(user_name):
+    def resolve_user_name(self,user_name):
         """
         Parameters
         ----------
@@ -365,31 +459,37 @@ class ConfigUserInfo(object):
             If the user_name is None, it is replaced with the default
             user from the configuration file.
         """
+        
         if user_name is None:
             du = config.DefaultUser
-            user_name = du.user_name
+            self.user_name = du.user_name
+            self.password = du.password
+            self.type = 'default'
         elif user_name == '':
             raise Exception('specified user_name must be a non-empty string or None')
         else:
-            if hasattr(config,'')
-            pass
-        #TODO: Look for user in config
-            
-        return user_name
-
-
-  
-
-
-
+            if hasattr(config,'other_users'):
+                other_users = config.other_users
+                if user_name in other_users:
+                    temp = other_users[user_name]
+                    self.user_name = temp.user_name
+                    self.password = temp.password
+                    self.type = 'other users'
+                else:
+                    raise Exception('The specified alias could not be found in the "other_users" keys()')
+            else:
+                raise Exception('"other_users" has not been specified in the config file')
 
 class UserTokenRetriever(object):
     
-    def __init__(self,user_info):
-        #TODO: Include session
+    def __init__(self,user_info,session):
+        """
+        UserTokenRetriever(user_info,session)
+        """
+        self.session = session
         self.user_info = user_info
-        code  = self.get_authorization_code_auto(user_name, password)
-        self.token = trade_code_for_user_access_token(code)
+        code  = self.get_authorization_code_auto()
+        self.token_json = self.trade_code_for_user_access_token(code)
 
     def get_authorization_code_auto(self):  
         """
@@ -419,7 +519,7 @@ class UserTokenRetriever(object):
             'redirect_uri'  : 'https://localhost', 
             'scope'         : 'all',
             'response_type' : 'code'}
-        r = requests.get(URL, params=payload)
+        r = self.session.get(URL, params=payload)
     
         if r.status_code != requests.codes.ok:
             raise Exception('TODO: Fix me, request failed ...')
@@ -429,10 +529,13 @@ class UserTokenRetriever(object):
         payload2 = {
             'username' : self.user_info.user_name,
             'password' : self.user_info.password}
-        r2 = requests.post(r.url,data=payload2,allow_redirects=False)    
+        r2 = self.session.post(r.url,data=payload2,allow_redirects=False)    
         
         if r2.status_code != requests.codes.FOUND:
-            raise Exception('TODO: Fix me, request failed ...')  
+            #1) I've gotten a 200 ok with "Incorrect Details" which just
+            #turned out that I needed to login to Mendeley first to finish
+            #registration
+            raise Exception("Auto-submission of the user's credentials failed")  
         
         #STEP 3: Grab code from redirect URL
         #----------------------------------------------
@@ -489,7 +592,7 @@ class UserTokenRetriever(object):
             'client_id'     : config.Oauth2Credentials.client_id,
             } 
     
-        r = requests.post(URL,headers=headers,data=payload)
+        r = self.session.post(URL,headers=headers,data=payload)
     
         if r.status_code != requests.codes.ok:
             raise Exception('TODO: Fix me, request failed ...')    
@@ -522,85 +625,8 @@ class UserInfo(object):
     def __init__(self,user_name,password):
         self.user_name = user_name
         self.password = password
-
-
-class PublicCredentials(_Credentials):
     
-    """
-    TODO: Fill this out    
-    
-    """
-        
-    def __init__(self,session = None):
-        self.populate_session(session)
-        temp_json = self.create_initial_token()
-        self.init_json_attributes(temp_json)
 
-    def init_json_attributes(self,json):
-        self.access_token = json['access_token']
-        self.token_type = json['token_type']
-        self.expires = datetime.datetime.now(pytz.utc) + datetime.timedelta(seconds=json['expires_in'])
-    
-    def __repr__(self):
-        return \
-            '  acess_token : %s\n' % (self.access_token)    + \
-            '   token_type : %s\n' % (self.token_type)      + \
-            '      expires : %s\n' % (str(self.expires))    + \
-            'token_expired : %s\n' % (self.token_expired)
-            
-         
-
-        
-    @classmethod
-    def load(cls,session=None):
-        """
-        Loads the class instance from disk.        
-        
-        """
-   
-        load_path = cls.get_file_path()
-        
-        if not os.path.isfile(load_path):
-            raise Exception('Requested token does not exist')
-                       
-        with open(load_path,'rb') as f:
-            temp = pickle.load(f)
-                        
-        return temp        
-    
-    def renew_token(self):
-        temp_json = self.create_initial_token()
-        self.init_json_attributes(temp_json)
-        self.save()
-    
-    @staticmethod   
-    def create_initial_token():
-
-        """
-        Requests the client token from Mendeley. The results can then be
-        used to construct OR update the object.
-        
-        See Also:
-        ---------------
-        get_public_credentials
-        
-        """
-        URL = 'https://api-oauth2.mendeley.com/oauth/token'
-  
-        payload = {
-            'grant_type'    : 'client_credentials',
-            'scope'         : 'all',
-            'redirect_uri'  : config.Oauth2Credentials.redirect_url,
-            'client_secret' : config.Oauth2Credentials.client_secret,
-            'client_id'     : config.Oauth2Credentials.client_id,
-            }   
-  
-        r = requests.post(URL,data=payload)
-        
-        if r.status_code != requests.codes.ok:
-            raise Exception('Request failed, TODO: Make error more explicit')
-        
-        return r.json()
 
 
 

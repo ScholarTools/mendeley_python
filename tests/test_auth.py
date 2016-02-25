@@ -2,27 +2,18 @@
 """
 """
 
+import sys
 sys.path.append('..')
 
 from mendeley import auth
 
 def test_auth():
-    public_credentials = auth.
-    m = API(user_name='public')
+    public_credentials = auth.retrieve_public_credentials()
+
+    default_credentials = auth.retrieve_user_credentials()
     
-    academic_statuses = m.definitions.academic_statuses()
-    print('Retrieved academic statuses')
+    testing_credentials = auth.retrieve_user_credentials(user_name='testing')
     
-    disciplines = m.definitions.disciplines()
-    print('Retrieved disciplines')
-
-    document_types = m.definitions.document_types()
-    print('Retrieved document types')
-
-    
-    print('Finished running "Definitions" tests')
-
-
 if __name__ == '__main__':
     print('Running "Auth" tests')
     test_auth()
