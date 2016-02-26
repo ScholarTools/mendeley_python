@@ -384,7 +384,7 @@ class Document(ResponseObject):
                 'source',self.source,
                 'year',self.year,
                 'abstract',td(self.abstract),
-                'keywords',td(self.keywords),
+                'keywords',td("%s"%self.keywords),
                 'identifiers',cld(self.identifiers)]
         if pv_only:
             return pv

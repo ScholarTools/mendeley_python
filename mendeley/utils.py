@@ -7,6 +7,12 @@ from . import config
 import os
 import inspect
 
+def float_or_none_to_string(x):
+    if x is None:
+        return 'None'
+    else:
+        return '%0.2f'%x
+
 def property_values_to_string(pv):
     """
     Parameters
@@ -52,7 +58,7 @@ def get_list_class_display(value):
     else:
         return u'<%s>' % (value.__class__.__name__)
 
-def get_truncated_display_string(input_string,max_length = 30):
+def get_truncated_display_string(input_string,max_length = 50):
     if input_string is None:
         return 'None'
     elif len(input_string) > max_length:

@@ -23,6 +23,7 @@ import os
 import pandas as pd
 import pickle
 
+from .utils import float_or_none_to_string as fstr
 from .utils import get_truncated_display_string as td
 from .utils import get_list_class_display as cld
 from . import utils
@@ -52,17 +53,17 @@ class UserLibrary():
 
     FILE_VERSION = 1    
     
-    def __init__(self, user_name=None):
+    def __init__(self, user_name=None,verbose=False):
         self.api = API(user_name=user_name)
-        self.user_name = self.api.user_name        
+        self.user_name = self.api.user_name      
+        self.verbose = verbose
         
         #path handling
         #-------------
         root_path = utils.get_save_root(['client_library'],True)
         save_name = utils.user_name_to_file_name(self.user_name) + '.pickle'
         self.file_path = os.path.join(root_path,save_name)
-        
-                     
+                             
         self._load()
         
         self.sync()
@@ -82,122 +83,11 @@ class UserLibrary():
         
         """
 
-        #TODO:
-        #sync_result = Sync(self.raw)
-        #unpack result
-        
-        if self.raw is None:
-            #Get it all
-            t1 = time.clock()
-            print('Starting retrieval')
-            doc_set = self.api.documents.get(limit=500,view='all')
-            self.raw = [x.json for x in doc_set]
-            trash_set = self.api.trash.get(limit=500,view='all')
-            self.raw_trash = [x.json for x in trash_set]
-            print(time.clock() - t1)
-            
-            
-            t2 = time.clock()
-            self._save()
-            print(time.clock() - t2)
-            
-            self.docs = self._raw_to_data_frame(self.raw)
-        else:
-            t2 = ctime()
-            #Ok, with a lot of messsing around I think the full operation
-            #should be:
-            #1) check trash - remove documents from list
-            #2) check deletd - remove documents from list
-            #3) check modified since, add/update as necessary ...
-            last_updated_idx = self.docs['last_modified'].idxmax()
-            newest_modified_time = self.docs.ix[last_updated_idx,'last_modified']
-            #NOTE: We could just convert the time back to a string ...
-            numeric_idx = self.docs.index.get_loc(last_updated_idx)
-            newest_modified_time_str = self.raw[numeric_idx]['last_modified']  
-
-            
-            #1) Check trash - need API in place     
-            #Can we check for trash that's been moved back
-            #to the main 
-            t1 = ctime()
-            print('trash check')
-            trash_set = self.api.trash.get(limit=500,view='all')
-            trash_ids = [x.id for x in trash_set]  
-            print(ctime() - t1)
-            
-            #raw_trash = [x.json for x in trash_set]
-            #trash_ids = [x['id'] for x in raw_trash]            
-                     
-            #2) Check deleted
-            t1 = ctime()
-            print('Deleted check')
-            #This is way way faster :/
-            deleted_ids = self.api.documents.deleted_files(since = newest_modified_time_str)
-            #deleted_ids = [x['id'] for x in temp]
-            #temp = self.api.documents.get(deleted_since = newest_modified_time_str)
-            #deleted_ids = [x.id for x in temp]
-            print(ctime() - t1)
-
-            #Removal of ids
-            #--------------
-            ids_to_remove = trash_ids + deleted_ids
-            if len(ids_to_remove) > 0:
-                delete_mask = self.docs.index.isin(ids_to_remove)
-                keep_mask = ~delete_mask
-                self.docs = self.docs[keep_mask]
-                self.raw = [x for x,y in zip(self.raw,keep_mask) if y]
-            
-            #3) check modified since - add/update as necessary
-            #-------------------------------------------------
-            #I think for now to keep things simple we'll relate everything
-            #to the newest last modified value, rather than worrying about
-            #mismatches in time between the client and the server
-                 
-            t1 = ctime()
-            print('Modified check')
-            doc_set = self.api.documents.get(modified_since = newest_modified_time_str)
-            raw_au_docs = [x.json for x in doc_set]
-            print(ctime() - t1)
-                       
-            
-            if len(raw_au_docs) > 0:
-                df = self._raw_to_data_frame(raw_au_docs)
-                is_new_mask = df['created'] > newest_modified_time
-                new_rows_df = df[is_new_mask]
-                new_raw = [x for x,y in zip(raw_au_docs,is_new_mask) if y]
-                updated_rows_df = df[~is_new_mask]
-                updated_raw = [x for x,y in zip(raw_au_docs,is_new_mask) if not y]
-                if len(new_rows_df) > 0:
-                    #TODO: Merge old with new
-                    print('New values discovered, need to update this code')
-                    import pdb
-                    pdb.set_trace()
-                    
-                if len(updated_rows_df) > 0:
-                    in_old_mask = updated_rows_df.index.isin(self.docs.index)
-                    if not in_old_mask.all():
-                        print('Logic error, updated entries are not in the original')
-                        import pdb
-                        pdb.set_trace()
-                        #raise Exception('Logic error, updated entries are not in the original')
-                        
-                    
-                    #This approach is not great and could likely be improved ...
-                    #We're running into issues because of needing to align by
-                    #the list. We might need to switch to a dict ...
-                    for index, cur_new_entry in updated_rows_df.iterrows():
-                        row_in_master = self.docs.index.get_loc(index)
-                        #I = self.docs.index.get_loc
-                        #- find location in dataframe
-                        #- find location in rows
-                        del self.raw[row_in_master]
-                        self.docs.drop(index,inplace=True)
-                    
-                    self.raw = self.raw + updated_raw
-                    self.docs = pd.concat([self.docs,updated_rows_df])
-                    
-                    print(ctime() - t2) 
-            
+        sync_result = Sync(self.api,self.raw,verbose = self.verbose)
+        self.sync_result = sync_result
+        self.raw = sync_result.raw
+        self.docs = sync_result.docs
+        self._save()
 
     def get_document_objects(self,doc_row_entries):
         #TODO: Resolve from df rows to raw, then call
@@ -215,9 +105,9 @@ class UserLibrary():
                 d = pickle.load(pickle_file)
             
             self.raw = d['raw']
-            self.docs = self._raw_to_data_frame(d['raw'])
         else:
             self.raw = None
+            self.docs = None
     
     def _save(self):
         d = {}
@@ -234,27 +124,63 @@ class Sync(object):
     I think this object should perform the syncing and include some 
     debugging information as well
     
-    Parameters
+    Attributes
     ----------
-    
+    time_deleted_check
+    time_full_retrieval
+    time_modified_check
+    time_trash_retrieval
+    time_update_sync
     
     """
+    
     def __init__(self,api,raw,verbose=False):
+        self.time_full_retrieval = None
+        self.time_deleted_check = None
+        self.time_trash_retrieval = None
+        self.time_modified_check = None
+        self.time_modified_processing = None
+        self.newest_modified_time = None
+        self.n_docs_removed = 0
+        
+        self.time_update_sync = None
         
         self.api = api
         self.verbose = verbose
-        self.full_retrieval_time = None
-        self.trash_retrieval_time = None
         
-        #Outputs
-        #------------------
         self.raw = raw
+        
+        #Populated_values
+        #-----------------
+        self.deleted_ids = None
+        self.trash_ids = None
+        self.new_and_updated_docs = None
+        
 
         if self.raw is None:
-            self.full_sync(raw)
+            self.full_sync()
         else:
             self.update_sync()
-                
+            
+        self.raw = self.docs['json'].tolist()
+ 
+    def __repr__(self):
+        pv = [
+            'raw',cld(self.raw),'docs',cld(self.docs),
+            'time_full_retrieval',fstr(self.time_full_retrieval),
+            'time_update_sync',fstr(self.time_update_sync),
+            'newest_modified_time',self.newest_modified_time,
+            'time_deleted_check',fstr(self.time_deleted_check),
+            'time_trash_retrieval',fstr(self.time_trash_retrieval),
+            'time_modified_check',fstr(self.time_modified_check),
+            'time_modified_processing',fstr(self.time_modified_processing),
+            'deleted_ids',cld(self.deleted_ids),
+            'trash_ids',cld(self.trash_ids),
+            'n_docs_removed','%d'%self.n_docs_removed,
+            'new_and_updated_docs',cld(self.new_and_updated_docs)]
+            
+        return utils.property_values_to_string(pv)
+          
     def full_sync(self):
     
         t1 = ctime()
@@ -264,26 +190,144 @@ class Sync(object):
         #within the caller
         doc_set = self.api.documents.get(limit=500,view='all')
         
-        #TODO: make this a dict
-        self.raw = [x.json for x in doc_set]
+        raw = [x.json for x in doc_set]
+        self.docs = _raw_to_data_frame(raw)        
+        
         self.full_retrieval_time = ctime() - t1
         
-        self.verbose_printf('Finished retrieving all documents (n=%d) in %0.2f seconds' 
-            % (len(self.raw),self.full_retrieval_time))
-                
+        self.verbose_print('Finished retrieving all documents (n=%d) in %s seconds' 
+            % (len(self.raw),fstr(self.full_retrieval_time)))
+
+    def update_sync(self):
+        
+        self.verbose_print('Running "UPDATE SYNC"')        
+        
+        start_sync_time = ctime()
+        
+        self.docs = _raw_to_data_frame(self.raw)
+        
+        newest_modified_time = self.docs['last_modified'].max()
+        
+        self.newest_modified_time = newest_modified_time     
+        
+        self.get_trash_ids()
+        
+        self.get_deleted_ids(newest_modified_time)
+        
+        self.remove_old_ids()
+        
+        #-------------------------------------------------------
+        updates_and_new_entries_start_time = ctime()
+        self.verbose_print('Checking for modified or new documents')
+        self.get_updates_and_new_entries(newest_modified_time)
+        self.time_modified_processing = ctime()-updates_and_new_entries_start_time
+        self.verbose_print('Done updating modified and new documents')
+        
+        self.time_update_sync = ctime()-start_sync_time
+        
+        self.verbose_print('Done running "UPDATE SYNC" in %s seconds'%fstr(self.time_update_sync))  
+     
+    def get_updates_and_new_entries(self,newest_modified_time):
+        """        
+        #3) check modified since - add/update as necessary
+        #-------------------------------------------------
+        #I think for now to keep things simple we'll relate everything
+        #to the newest last modified value, rather than worrying about
+        #mismatches in time between the client and the server
+        """
+             
+        start_modified_time = ctime()
+        #TODO: Include -1 here ...
+        doc_set = self.api.documents.get(modified_since = newest_modified_time)
+        raw_au_docs = [x.json for x in doc_set]
+        self.new_and_updated_docs = doc_set.docs
+        self.time_modified_check = ctime()-start_modified_time
+               
+        if len(raw_au_docs) == 0:
+            return
+        
+        df = _raw_to_data_frame(raw_au_docs)
+          
+        is_new_mask = df['created'] > newest_modified_time
+        new_rows_df = df[is_new_mask]
+        updated_rows_df = df[~is_new_mask]        
+        if len(new_rows_df) > 0:
+            #TODO: Merge old with new
+            print('New values discovered, need to update this code')
+            import pdb
+            pdb.set_trace()
+        
+        if len(updated_rows_df) > 0:
+            in_old_mask = updated_rows_df.index.isin(self.docs.index)
+            if not in_old_mask.all():
+                print('Logic error, updated entries are not in the original')
+                import pdb
+                pdb.set_trace()
+                #raise Exception('Logic error, updated entries are not in the original')
+            
+            updated_indices = updated_rows_df.index
+            self.docs.drop(updated_indices,inplace=True)
+
+            self.docs = pd.concat([self.docs,updated_rows_df])
+        
+    def get_trash_ids(self):
+        """
+        Here we are looking for documents that have been moved to the trash.
+        
+        ??? Can we check the trash that's been moved back to the main
+        """        
+                        
+        trash_start_time = ctime()
+        self.verbose_print('Checking trash')
+        
+        trash_set = self.api.trash.get(limit=500,view='all')
+        self.trash_ids = [x.id for x in trash_set]
+        
+        self.verbose_print('Finished checking trash, %d documents found'%len(self.trash_ids))
+        self.time_trash_retrieval = ctime()-trash_start_time
+        
+    def get_deleted_ids(self,newest_modified_time):
+        
+        #2) Check deleted
+        deletion_start_time = ctime()
+        self.verbose_print('Requesting deleted file IDs')
+
+        #This is way way faster :/ than the documents.get() method although
+        #it is only documented sparsly.
+        #TODO: We could do the string conversion in the api
+        self.deleted_ids = self.api.documents.deleted_files(since = newest_modified_time)
+
+        self.verbose_print('Done requesting deleted file IDs, %d found'%len(self.deleted_ids))
+        self.time_deleted_check = ctime() - deletion_start_time       
+        
+    def remove_old_ids(self):
+        #Removal of ids
+        #--------------
+        ids_to_remove = self.trash_ids + self.deleted_ids
+        if len(ids_to_remove) > 0:
+            delete_mask = self.docs.index.isin(ids_to_remove)
+            keep_mask = ~delete_mask
+            self.n_docs_removed = sum(delete_mask)
+            self.docs = self.docs[keep_mask]
+             
     def verbose_print(self,msg):
         if self.verbose:
-            print(msg) 
-
-def _raw_to_data_frame(self,raw):
+            print(msg)
+            
+def _raw_to_data_frame(raw,include_json=True):
+    
     """
     
     """
     #Note that I'm not using the local attribute
     #as we can then use this for updating new information
     df = pd.DataFrame(raw)
+    
     df.set_index('id', inplace=True)
 
+    if include_json:
+        df['json'] = raw
+        
     if len(raw) == 0:
         return df
 
@@ -306,7 +350,10 @@ def _raw_to_data_frame(self,raw):
 
 def parse_datetime(x):
     return datetime.strptime(x, "%Y-%m-%dT%H:%M:%S.%fZ")
-        
+  
+#def datetime_to_string(x):
+#    return x.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+      
 def parse_issn(x):
     #This value is not necessarily clean
     #e.g 17517214 => 1751-7214???

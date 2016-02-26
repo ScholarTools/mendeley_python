@@ -5,8 +5,8 @@ Example function calls
 
 from mendeley import client_library
 
-temp = client_library.UserLibrary()
-
+temp = client_library.UserLibrary(verbose=True)
+#temp = client_library.UserLibrary(user_name='testing')
 
 import pdb
 pdb.set_trace()

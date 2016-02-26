@@ -403,7 +403,7 @@ class UserCredentials(_Credentials):
             pdb.set_trace()
             raise Exception('TODO: Fix me, request failed ...')
       
-        self.init_json_attribute(r.json())      
+        self.init_json_attributes(r.json())      
         self.save()
 
     

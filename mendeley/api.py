@@ -61,6 +61,7 @@ if PY2:
 else:
     from urllib.parse import quote as urllib_quote
 
+from datetime import datetime
 from . import auth
 import requests
 import pdb
@@ -114,30 +115,20 @@ class API(object):
         
         """
         
+        self.s = requests.Session()
         if user_name == 'public':
             self.public_only = True
             token = auth.retrieve_public_credentials()
             self.user_name = 'public'
         else:
             self.public_only = False    
-            token = auth.UserCredentials.load(user_name)
+            token = auth.retrieve_user_credentials(user_name,session=self.s)
             self.user_name = token.user_name
-            
-        #TODO: Decide how I want to handle this
-        #In the old approach None means use the default user ...
-           
-        #self.public_only = user_name is None
-        
-        #if user_name is None:
-        #    
-        #else:
-        
-       
-       #TODO: Add on printing of object with methods and default options
-        
+
+        #Options ... (I might change this ...)            
         self.default_return_type = 'object'
+
         self.access_token = token
-        self.s = requests.Session() #TODO: I should just use session here ...
         self.last_response = None
         self.last_params = None
         
@@ -418,10 +409,10 @@ class Documents(object):
         group_id : string
             The id of the group that the document belongs to. If not supplied 
             returns users documents.
-        modified_since : string
+        modified_since : string or datetime
             Returns only documents modified since this timestamp. Should be 
             supplied in ISO 8601 format.
-        deleted_since : string
+        deleted_since : string or datetime
             Returns only documents deleted since this timestamp. Should be 
             supplied in ISO 8601 format.
         profile_id : string
@@ -460,6 +451,9 @@ class Documents(object):
         if 'id' in kwargs:
             id = kwargs.pop('id')
             url += '/%s/' % id
+          
+        convert_datetime_to_string(kwargs,'modified_since')
+        convert_datetime_to_string(kwargs,'deleted_since')
 
         view = kwargs.get('view')
 
@@ -468,14 +462,21 @@ class Documents(object):
         
         limit = kwargs.get('limit',20)
         response_params = {'fcn':document_fcns[view],'view':view,'limit':limit}  
-                
-        #TODO: When returning deleted_since, the format changes and the fcn
-        #called should change
-                
+                                
         return self.parent.make_get_request(url,models.DocumentSet.create,kwargs,response_params)  
         
         
     def deleted_files(self,**kwargs):
+        """
+        Parameters
+        ----------
+        since
+        group_id
+        
+        
+        """
+        convert_datetime_to_string(kwargs,'since')
+        
         url = BASE_URL + '/deleted_documents'
         return self.parent.make_get_request(url,models.deleted_document_ids,kwargs)  
 
@@ -627,6 +628,8 @@ class UserMethods(API):
         'Methods:\n' + \
         '   profile_get_info\n' +\
         '   docs_get_details\n'
-        
-        
+
+def convert_datetime_to_string(d,key):
+    if key in d and isinstance(d[key],datetime):
+        d[key] = d[key].strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         
