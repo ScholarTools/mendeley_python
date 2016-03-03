@@ -246,18 +246,20 @@ class Sync(object):
         if len(raw_au_docs) == 0:
             return
         
+        #TODO: Update name, I thougt this was referrring to our official copy
+        #which is currently self.docs
         df = _raw_to_data_frame(raw_au_docs)
           
         is_new_mask = df['created'] > newest_modified_time
         new_rows_df = df[is_new_mask]
         updated_rows_df = df[~is_new_mask]        
         if len(new_rows_df) > 0:
-            #TODO: Merge old with new
-            print('New values discovered, need to update this code')
-            import pdb
-            pdb.set_trace()
+            self.verbose_print('%d new documents found'%len(new_rows_df))
+            self.docs = self.docs.append(new_rows_df)
+
         
         if len(updated_rows_df) > 0:
+            self.verbose_print('%d updated documents found'%len(updated_rows_df))
             in_old_mask = updated_rows_df.index.isin(self.docs.index)
             if not in_old_mask.all():
                 print('Logic error, updated entries are not in the original')
