@@ -5,7 +5,7 @@ Top 4:
 	Springer Link
 	Nature
 
-('10.1016', 508) - Journal of Urology website - ScienceDirect
+('10.1016', 508) - ScienceDirect
 ('10.1002', 205) - Wiley
 ('10.1007', 137) - Springer Link
 ('10.1111', 122) - Wiley

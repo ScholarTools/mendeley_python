@@ -28,17 +28,22 @@ for x in range(0, len(top)):
     text.write('\n')
 '''
 
-print top
 
 # Create list of DOIs with each unique prefix represented once, in decreasing order of occurrence
 examples = []
 for x in range(len(p)):
     pre = top[x][0]
-    for y in range(0,len(prefixes)):
+    for y in range(len(prefixes)):
         if pre == prefixes[y]:
             examples.append(names[y])
             break
 
-print len(examples)
-print examples
+unique_prefixes = [x[0] for x in top]
 
+print(examples)
+
+'''
+for x in range(len(prefixes)):
+    if prefixes[x] == '10.1002':
+        print(names[x])
+'''
