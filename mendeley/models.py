@@ -37,27 +37,25 @@ class WTF2(object):
 """
 
 
-
-#%%
+# %%
 
 class ResponseObject(object):
-    
-    #I made this a property so that the user could change this processing
-    #if they wanted. For example, this would allow the user to return authors
-    #as just the raw json (from a document) rather than creating a list of 
-    #Persons
-    object_fields = {}    
-    
-    def __init__(self,json):
+    # I made this a property so that the user could change this processing
+    # if they wanted. For example, this would allow the user to return authors
+    # as just the raw json (from a document) rather than creating a list of
+    # Persons
+    object_fields = {}
+
+    def __init__(self, json):
         self.json = json
 
     def __getattr__(self, name):
-        
-        #This check allows an optional field to be returned as None
-        #even if it isn't in the current json definition
+
+        # This check allows an optional field to be returned as None
+        # even if it isn't in the current json definition
         #
-        #This however still keeps in place errors like if you ask for:
-        #document.yeear <= instead of year
+        # This however still keeps in place errors like if you ask for:
+        # document.yeear <= instead of year
         if name in self.fields():
             value = self.json.get(name)
             if value is None:
@@ -85,13 +83,13 @@ class ResponseObject(object):
         """
         return []
 
-#%%
+
+# %%
 class DocumentIdentifiers(ResponseObject):
-        
     @classmethod
     def fields(cls):
         return ['pmid', 'issn', 'doi', 'isbn', 'arxiv']
-        
+
     def _null(self):
         self.pmid = None
         self.issn = None
@@ -100,71 +98,75 @@ class DocumentIdentifiers(ResponseObject):
         self.arxiv = None
 
     def __repr__(self):
-        pv = ['pmid',self.pmid,'doi',self.doi,'issn',self.issn,
-              'isbn',self.isbn,'arxiv',self.arxiv]
+        pv = ['pmid', self.pmid, 'doi', self.doi, 'issn', self.issn,
+              'isbn', self.isbn, 'arxiv', self.arxiv]
         return utils.property_values_to_string(pv)
-    
+
+
 class Person(ResponseObject):
     """
     """
+
     @classmethod
     def fields(cls):
         return ['first_name', 'last_name']
-    
+
     def _null(self):
         self.first_name = None
         self.last_name = None
-     
+
     def initialize_array(json):
         return [Person(x) for x in json]
-    
+
     def __repr__(self):
         return u'' + \
-            'first_name: %s\n' % self.first_name + \
-            ' last_name: %s\n' % self.last_name
-    
+               'first_name: %s\n' % self.first_name + \
+               ' last_name: %s\n' % self.last_name
+
 
 class Annotation(object):
-    
-    def __init__(self,json,m):
+    def __init__(self, json, m):
         import pdb
         pdb.set_trace()
 
-#%%
-def academic_statuses(json,m):
+
+# %%
+def academic_statuses(json, m):
     """
     The json contains a list of dictionaries but each dictionary
     only contains a description key. So instead of returning the dictionaries
     I'm currently only returning the descriptions.
     """
     return [x['description'] for x in json]
-    
-def disciplines(json,m):
+
+
+def subject_areas(json, m):
     """
     There is also a 'subdiscipline' field
     but it is always empty, I think this is a bug
     in the API
     """
-    #'name
-    #'subdisciplines'
-    
-    #return [x['name'] for x in json]
+    # 'name
+    # 'subdisciplines'
+
+    # return [x['name'] for x in json]
     return json
-    
-def document_types(json,m):
-    
+
+
+def document_types(json, m):
     return json
-    
-def deleted_document_ids(json,m):
+
+
+def deleted_document_ids(json, m):
     """
     This is for the deleted_documents function.
     """
     return [x['id'] for x in json]
 
-#%%
+
+# %%
 
 class ProfileInfo(object):
-    
     """
     http://dev.mendeley.com/methods/#profile-attributes
     
@@ -173,24 +175,23 @@ class ProfileInfo(object):
     
     #TODO: Allow updating 
     """
-    def __init__(self,json,m):
-        
+
+    def __init__(self, json, m):
         """
         Parameters
         ----------
         json : dict
         m : api.UserMethods
         """
-             
-        #TODO: I'd like to eventually populate each attribute 
-        #lazily - TODO: Write code that writes this code
+
+        # TODO: I'd like to eventually populate each attribute
+        # lazily - TODO: Write code that writes this code
         for key in json:
-            setattr(self,key,json[key])
+            setattr(self, key, json[key])
 
     def __repr__(self):
-        
         return \
-            'first_name : %s\n' % (self.first_name) +\
+            'first_name : %s\n' % (self.first_name) + \
             ' last_name : %s\n' % (self.last_name)
 
 
@@ -198,8 +199,8 @@ class DocumentSet(object):
     """
     Responsible for managing a set of documents.
     """
-    
-    def __init__(self,json,m,params):
+
+    def __init__(self, json, m, params):
         """
         Parameters
         ----------
@@ -208,22 +209,22 @@ class DocumentSet(object):
         
         
         """
-        #TODO: build in next and prev support
+        # TODO: build in next and prev support
         self.links = m.last_response.links
         self.api = m
         self.response_params = params
-                
+
         fcn = params['fcn']
-        
-        #TODO: Figure out how to support lazy loading
-        #TODO: Support view construction
-        self.docs = [fcn(x,m) for x in json]
+
+        # TODO: Figure out how to support lazy loading
+        # TODO: Support view construction
+        self.docs = [fcn(x, m) for x in json]
         self.view = params['view']
-    
-    #TODO: These will need to call some common function
-    #That function will need to figure out how to call pages
-    #outside of the typical function calls
-    
+
+    # TODO: These will need to call some common function
+    # That function will need to figure out how to call pages
+    # outside of the typical function calls
+
     def __iter__(self):
         """
         
@@ -232,11 +233,11 @@ class DocumentSet(object):
         while page:
             for single_doc in page.docs:
                 yield single_doc
-                
+
             page = page.next_page()
-    
+
     @classmethod
-    def create(cls,json,m,params):
+    def create(cls, json, m, params):
         """
         I believe this distinction was made to distinguish between instances
         in which a set was required or instances in which by definition
@@ -245,52 +246,52 @@ class DocumentSet(object):
         This however needs to be clarified.
         """
 
-        if isinstance(json,list):
-            return DocumentSet(json,m,params)
+        if isinstance(json, list):
+            return DocumentSet(json, m, params)
         else:
             fcn = params['fcn']
-            return fcn(json,m)
+            return fcn(json, m)
 
-    #TODO: We should probably include a navigation method, similar
-    #to Page in mendeley.pagination
-        
+    # TODO: We should probably include a navigation method, similar
+    # to Page in mendeley.pagination
+
     def first_page(self):
         pass
-    
+
     def next_page(self):
         if 'next' not in self.links:
             return None
         else:
             next_url = self.links['next']['url']
-            return self.api.make_get_request(next_url,DocumentSet,None,self.response_params)
-    
+            return self.api.make_get_request(next_url, DocumentSet, None, self.response_params)
+
     def previous_page(self):
         pass
-    
+
     def last_page(self):
         pass
-      
+
     def __repr__(self):
-        pv = ['links',self.links.keys(),'docs',cld(self.docs),'view',self.view]
+        pv = ['links', self.links.keys(), 'docs', cld(self.docs), 'view', self.view]
         return utils.property_values_to_string(pv)
 
+
 class DeletedDocument(ResponseObject):
-    
-    def __init__(self,json,m):
+    def __init__(self, json, m):
         super(DeletedDocument, self).__init__(json)
-    
+
     def _null(self):
         self.id
-    
+
     @classmethod
     def fields(cls):
         return ['id']
-        
+
     def __repr__(self):
         return 'id: %s' % self.id
-              
+
+
 class Document(ResponseObject):
-    
     """
 
     Possible methods to add:
@@ -343,85 +344,83 @@ class Document(ResponseObject):
 
     object_fields = {
         'authors': Person.initialize_array,
-        'identifiers': DocumentIdentifiers}    
-    
-    def __init__(self,json,m):
+        'identifiers': DocumentIdentifiers}
+
+    def __init__(self, json, m):
         super(Document, self).__init__(json)
-    
+
     def _null(self):
         """
         TODO: Ask on SO about this, is there an alternative approach?
         It does expose tab completion in Spyder ...
         """
-        self.source = None #
-        self.year = None #
+        self.source = None  #
+        self.year = None  #
         self.identifiers = None
-        self.id = None #
-        self.type = None #
-        self.created = None #
-        self.profile_id = None #
-        self.last_modified = None #
-        self.title = None #
-        self.authors = None #
+        self.id = None  #
+        self.type = None  #
+        self.created = None  #
+        self.profile_id = None  #
+        self.last_modified = None  #
+        self.title = None  #
+        self.authors = None  #
         self.keywords = None
-        self.abstract = None #
-    
+        self.abstract = None  #
+
     @classmethod
     def fields(cls):
-        return ['source', 'year', 'identifiers', 'id', 'type', 'created', 
-        'profile_id', 'last_modified', 'title', 'authors', 'keywords', 
-        'abstract']
-                
-    def __repr__(self,pv_only=False):
-        #TODO: Set this up like it looks in Mendeley
-        pv = ['profile_id',self.profile_id,
-                'created',self.created,
-                'last_modified',self.last_modified,
-                'id',self.id,
-                'type',self.type,
-                'title',td(self.title),
-                'authors',cld(self.authors),
-                'source',self.source,
-                'year',self.year,
-                'abstract',td(self.abstract),
-                'keywords',td("%s"%self.keywords),
-                'identifiers',cld(self.identifiers)]
+        return ['source', 'year', 'identifiers', 'id', 'type', 'created',
+                'profile_id', 'last_modified', 'title', 'authors', 'keywords',
+                'abstract']
+
+    def __repr__(self, pv_only=False):
+        # TODO: Set this up like it looks in Mendeley
+        pv = ['profile_id', self.profile_id,
+              'created', self.created,
+              'last_modified', self.last_modified,
+              'id', self.id,
+              'type', self.type,
+              'title', td(self.title),
+              'authors', cld(self.authors),
+              'source', self.source,
+              'year', self.year,
+              'abstract', td(self.abstract),
+              'keywords', td("%s" % self.keywords),
+              'identifiers', cld(self.identifiers)]
         if pv_only:
             return pv
         else:
             return utils.property_values_to_string(pv)
-                
 
 
-#???? How does this compare to 
+# ???? How does this compare to
 class BibDocument(Document):
-
-    def __init__(self,json,m):
-        super(BibDocument, self).__init__(json,m)
-        #s1 = set(json.keys())
-        #s2 = set(Document.fields())
-        #s1.difference_update(s2)
+    def __init__(self, json, m):
+        super(BibDocument, self).__init__(json, m)
+        # s1 = set(json.keys())
+        # s2 = set(Document.fields())
+        # s1.difference_update(s2)
 
     def _null(self):
-        self.issue = None #
-        self.pages = None #
-        self.volume = None #
-        self.websites = None #
+        self.issue = None  #
+        self.pages = None  #
+        self.volume = None  #
+        self.websites = None  #
 
     @classmethod
     def fields(cls):
         return super(BibDocument, cls).fields() + \
-            ['issue','pages','volume','websites']
-            
+               ['issue', 'pages', 'volume', 'websites']
+
     def __repr__(self):
-        pv = (super(BibDocument, self).__repr__(pv_only=True) + 
-            ['issue',self.issue,'pages',self.pages,
-            'volume',self.volume,'websites',td(self.websites)])
-            
+        pv = (super(BibDocument, self).__repr__(pv_only=True) +
+              ['issue', self.issue, 'pages', self.pages,
+               'volume', self.volume, 'websites', td(self.websites)])
+
         return utils.property_values_to_string(pv)
 
+
 class ClientDocument(Document):
-    
     """
     Attributes
     ----------
@@ -437,62 +436,68 @@ class ClientDocument(Document):
     starred    
     
     """
-    def __init__(self,json,m):
-        super(ClientDocument, self).__init__(json,m)
+
+    def __init__(self, json, m):
+        super(ClientDocument, self).__init__(json, m)
 
     def _null(self):
-        self.authored = None #
-        self.confirmed = None #
-        self.file_attached = None #
-        self.hidden = None #
-        self.read = None #
-        self.starred = None #
-        
+        self.authored = None  #
+        self.confirmed = None  #
+        self.file_attached = None  #
+        self.hidden = None  #
+        self.read = None  #
+        self.starred = None  #
 
     @classmethod
     def fields(cls):
-        return (super(ClientDocument, cls).fields() + 
-            ['hidden', 'file_attached', 'authored', 'read', 'starred', 'confirmed'])
+        return (super(ClientDocument, cls).fields() +
+                ['hidden', 'file_attached', 'authored', 'read', 'starred', 'confirmed'])
 
     def __repr__(self):
-        pv = (super(ClientDocument, self).__repr__(pv_only=True) + 
-            ['hidden',self.hidden,'file_attached',self.file_attached,
-            'authored',self.authored,'read',self.read,
-            'starred',self.starred,'confirmed',self.confirmed])
-            
+        pv = (super(ClientDocument, self).__repr__(pv_only=True) +
+              ['hidden', self.hidden, 'file_attached', self.file_attached,
+               'authored', self.authored, 'read', self.read,
+               'starred', self.starred, 'confirmed', self.confirmed])
+
         return utils.property_values_to_string(pv)
 
+
 class TagsDocument(Document):
-    
     """
     Attributes
     ----------
     tags :
         The user contributed strings
     """
-    def __init__(self,json,m):
-        super(TagsDocument, self).__init__(json,m)
+
+    def __init__(self, json, m):
+        super(TagsDocument, self).__init__(json, m)
 
     def _null(self):
-        self.tags = None #
+        self.tags = None  #
 
     @classmethod
     def fields(cls):
         return (super(TagsDocument, cls).fields() + ['tags'])
 
     def __repr__(self):
-        pv = (super(TagsDocument, self).__repr__(pv_only=True) + ['tags',td(self.tags)])
+        pv = (super(TagsDocument, self).__repr__(pv_only=True) + ['tags', td(self.tags)])
         return utils.property_values_to_string(pv)
+
 
 class AllDocument(Document):
     pass
 
+
 class PatentDocument(Document):
     pass
-#%%
+
+
+# %%
 """
 Catalog Documents
 """
+
 
 class CatalogDocument(object):
     """
@@ -502,83 +507,80 @@ class CatalogDocument(object):
     ----------
     
     """
-    
-    def __init__(self,json,m):
+
+    def __init__(self, json, m):
         """
         
         """
         self.raw = json
-        
-        self.title = json['title']        
+
+        self.title = json['title']
         self.type = json['type']
-        #Authors: To handle
+        # Authors: To handle
         #   first_name
         #   last_name
         self.year = json['year']
         self.source = json['source']
-        #Identifiers: To Handle      
+        # Identifiers: To Handle
         #   isbn?????
         #   pmid
         #   doi
         #   issn
-        
+
         self.id = json['id']
         self.abstract = json.get('abstract')
         self.link = json['link']
-        
+
     def __repr__(self):
         return u'' + \
-           '   title: %s\n' % td(self.title) + \
-           '    type: %s\n' % self.type + \
-           '    year: %s\n' % self.year + \
-           '  source: %s\n' % self.source + \
-           '      id: %s\n' % self.id + \
-           'abstract: %s\n' % td(self.abstract) + \
-           '    link: %s\n' % td(self.link)
-        
-class BibCatalogDocument(CatalogDocument):
+               '   title: %s\n' % td(self.title) + \
+               '    type: %s\n' % self.type + \
+               '    year: %s\n' % self.year + \
+               '  source: %s\n' % self.source + \
+               '      id: %s\n' % self.id + \
+               'abstract: %s\n' % td(self.abstract) + \
+               '    link: %s\n' % td(self.link)
 
-    def __init__(self,json,m):
+
+class BibCatalogDocument(CatalogDocument):
+    def __init__(self, json, m):
         import pdb
         pdb.set_trace()
-        super(BibCatalogDocument, self).__init__(json,m)
+        super(BibCatalogDocument, self).__init__(json, m)
         self.issue = json['issue']
         self.pages = json['pages']
         self.volume = json['volume']
-    
+
     def __repr__(self):
-        return super(BibCatalogDocument,self).__repr__() + \
-            '   issue: %s\n' % self.issue + \
-            '   pages: %s\n' % self.pages + \
-            '  volume: %s\n' % self.volume
-        
+        return super(BibCatalogDocument, self).__repr__() + \
+               '   issue: %s\n' % self.issue + \
+               '   pages: %s\n' % self.pages + \
+               '  volume: %s\n' % self.volume
+
+
 class StatsCatalogDocument(CatalogDocument):
-    
-    def __init__(self,json,m):
-        super(StatsCatalogDocument, self).__init__(json,m)
+    def __init__(self, json, m):
+        super(StatsCatalogDocument, self).__init__(json, m)
         self.group_count = json['group_count']
         self.reader_count = json['reader_count']
-        
-        #These are objects and not parsed
-        #--------------------------------
+
+        # These are objects and not parsed
+        # --------------------------------
         self.reader_count_by_academic_status = json['reader_count_by_academic_status']
         self.reader_count_by_country = json['reader_count_by_country']
         self.reader_count_by_discipline = json['reader_count_by_subdiscipline']
-                   
-class ClientCatalogDocument(CatalogDocument):
 
-    def __init__(self,json,m):
-        super(ClientCatalogDocument, self).__init__(json,m)  
-        #file_attached: false
+
+class ClientCatalogDocument(CatalogDocument):
+    def __init__(self, json, m):
+        super(ClientCatalogDocument, self).__init__(json, m)
+        # file_attached: false
+
 
 class AllCatalogDocument(CatalogDocument):
-    
-    def __init__(self,json,m):
+    def __init__(self, json, m):
         super(AllCatalogDocument, self).__init__()
-        #TODO: Not yet implemented
+        # TODO: Not yet implemented
         pass
 
-#%%
-            
-
-
+# %%

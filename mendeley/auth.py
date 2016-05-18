@@ -520,8 +520,13 @@ class UserTokenRetriever(object):
             'scope'         : 'all',
             'response_type' : 'code'}
         r = self.session.get(URL, params=payload)
-    
+
+        # TODO: build in check for invalid redirect URI
+        # Can change redirect URI above
+        #
         if r.status_code != requests.codes.ok:
+            import pdb
+            pdb.set_trace()
             raise Exception('TODO: Fix me, request failed ...')
             
         #STEP 2: Submit form for user authorizing client use

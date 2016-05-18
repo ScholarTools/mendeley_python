@@ -56,3 +56,6 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
+# Mendeley Developer Info
+mendeley_secret.txt
+

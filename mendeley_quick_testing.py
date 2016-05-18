@@ -3,10 +3,13 @@
 Example function calls
 """
 
+
 from mendeley import client_library
+from mendeley import API
 
 temp = client_library.UserLibrary(verbose=True)
-#temp = client_library.UserLibrary(user_name='testing')
+
+m = API()
 
 import pdb
 pdb.set_trace()
