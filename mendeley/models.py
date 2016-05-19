@@ -291,6 +291,16 @@ class DeletedDocument(ResponseObject):
         return 'id: %s' % self.id
 
 
+class File(ResponseObject):
+    """
+
+    """
+    def __init__(self, json):
+        super().__init__(self, json)
+
+
+
+
 class Document(ResponseObject):
     """
 

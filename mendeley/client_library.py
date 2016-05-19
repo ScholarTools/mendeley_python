@@ -20,6 +20,8 @@ import os
 import pandas as pd
 import pickle
 
+import pdb
+
 from .utils import float_or_none_to_string as fstr
 from .utils import get_list_class_display as cld
 from . import utils
@@ -33,7 +35,7 @@ class UserLibrary:
     docs : Pandas entry
     raw : list of dicts
     raw_trash : list of dicts
-    
+
     """
 
     FILE_VERSION = 1
@@ -77,9 +79,32 @@ class UserLibrary:
     def get_document_objects(self, doc_row_entries):
         # TODO: Resolve from df rows to raw, then call
         # constructor in models
-        import pdb
+
         pdb.set_trace()
         pass
+
+    def get_single_paper(self, doi):
+        # Search through library for a document with target DOI.
+        #
+        doc_id = None
+        document = None
+        for paper in self.raw:
+            if 'doi' in paper['identifiers'].keys():
+                if paper['identifiers']['doi'] == doi:
+                    doc_id = paper['id']
+                    document = paper
+                    break
+
+
+        if doc_id is None:
+            raise KeyError("DOI not found in library")
+
+        file = self.api.files.get_single(document_id=doc_id)
+
+
+
+        return file
+
 
     def _load(self):
         # TODO: Check that the file is not empty ...
@@ -143,7 +168,9 @@ class Sync(object):
         else:
             self.update_sync()
 
-        self.raw = self.docs['json'].tolist()
+        # If no documents are found, self.docs will have length 0.
+        if len(self.docs) != 0:
+            self.raw = self.docs['json'].tolist()
 
     def __repr__(self):
         pv = [
@@ -171,13 +198,19 @@ class Sync(object):
         # within the caller
         doc_set = self.api.documents.get(limit=500, view='all')
 
-        raw = [x.json for x in doc_set]
-        self.docs = _raw_to_data_frame(raw)
+        #pdb.set_trace()
+
+        self.raw = [x.json for x in doc_set]
+        self.docs = _raw_to_data_frame(self.raw)
 
         self.full_retrieval_time = ctime() - t1
 
-        self.verbose_print('Finished retrieving all documents (n=%d) in %s seconds'
-                           % (len(self.raw), fstr(self.full_retrieval_time)))
+        if self.raw is not None:
+            self.verbose_print('Finished retrieving all documents (n=%d) in %s seconds'
+                                % (len(self.raw), fstr(self.full_retrieval_time)))
+        else:
+            self.verbose_print('No documents found in %s seconds'
+                               % fstr(self.full_retrieval_time))
 
     def update_sync(self):
 
@@ -305,13 +338,15 @@ def _raw_to_data_frame(raw, include_json=True):
     # as we can then use this for updating new information
     df = pd.DataFrame(raw)
 
+    # len(df) == 0 means that no documents were found.
+    # Further operations on df would fail.
+    if len(df) == 0:
+        return df
+
     df.set_index('id', inplace=True)
 
     if include_json:
         df['json'] = raw
-
-    if len(raw) == 0:
-        return df
 
     # 2010-03-16T16:39:02.000Z
     # https://github.com/closeio/ciso8601

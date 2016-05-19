@@ -68,7 +68,7 @@ if PY2:
 else:
     from urllib.parse import quote as urllib_quote
 
-BASE_URL = 'https://api.mendeley.com/'
+BASE_URL = 'https://api.mendeley.com'
 
 # For each view, specify which object type should be returned
 catalog_fcns = {None: models.CatalogDocument,
@@ -132,6 +132,7 @@ class API(object):
         self.annotations = Annotations(self)
         self.definitions = Definitions(self)
         self.documents = Documents(self)
+        self.files = Files(self)
         self.trash = Trash(self)
 
     def __repr__(self):
@@ -334,6 +335,119 @@ class Annotations(object):
         pass
 
 
+class Files(object):
+    def __init__(self, parent):
+        self.parent = parent
+
+    def get_single(self, **kwargs):
+        """
+        # https://api.mendeley.com/apidocs#!/annotations/getFiles
+
+        Parameters
+        ----------
+        id :
+        document_id :
+        catalog_id :
+        filehash :
+        mime_type :
+        file_name :
+        size :
+
+        Returns
+        -------
+
+        """
+
+        url = BASE_URL + '/files'
+
+        doc_id = kwargs.get('document_id')
+
+        # Not sure what this should be doing
+        response_params = {'document_id': doc_id}
+
+        # x = self.parent.make_get_request(url, models.File, kwargs)
+
+        # Didn't want to deal with make_get_request so I did it myself.
+        response = self.parent.s.get(url, params=kwargs, auth=self.parent.access_token)
+        json = response.json()[0]
+
+        file_id = json['id']
+
+        file_url = url + '?id=' + file_id
+
+        file_response = self.parent.s.get(file_url, auth=self.parent.access_token)
+
+        import pdb
+        pdb.set_trace()
+
+        return file_id
+
+        pass
+
+    def get(self, **kwargs):
+        """
+        # https://api.mendeley.com/apidocs#!/annotations/getFiles
+
+        Parameters
+        ----------
+        id :
+        document_id :
+        catalog_id :
+        filehash :
+        mime_type :
+        file_name :
+        size :
+
+        Returns
+        -------
+
+        """
+        url = BASE_URL + '/documents'
+        if 'id' in kwargs:
+            id = kwargs.pop('id')
+            url += '/%s/' % id
+
+        convert_datetime_to_string(kwargs, 'modified_since')
+        convert_datetime_to_string(kwargs, 'deleted_since')
+
+        view = kwargs.get('view')
+
+        if 'deleted_since' in kwargs:
+            view = 'deleted'
+
+        limit = kwargs.get('limit', 20)
+        response_params = {'fcn': document_fcns[view], 'view': view, 'limit': limit}
+
+        return self.parent.make_get_request(url, models.DocumentSet.create, kwargs, response_params)
+        pass
+
+    def create(self, **kwargs):
+        """
+        https://api.mendeley.com/apidocs#!/files/uploadOrLinkFile
+
+        Request URL: https://api.mendeley.com/files
+
+        Parameters
+        ----------
+        id :
+        document_id :
+        catalog_id :
+        filehash :
+        mime_type :
+        file_name :
+        size :
+
+        """
+
+        url = BASE_URL + '/files'
+
+
+        pass
+
+    def delete(self):
+        pass
+
+
 class Trash(object):
     def __init__(self, parent):
         self.parent = parent
@@ -454,6 +568,72 @@ class Documents(object):
 
         return self.parent.make_get_request(url, models.DocumentSet.create, kwargs, response_params)
 
+    def get_single(self, **kwargs):
+        """
+        https://api.mendeley.com/apidocs#!/documents/getDocuments
+
+        Parameters
+        ----------
+        id :
+        group_id : string
+            The id of the group that the document belongs to. If not supplied
+            returns users documents.
+        modified_since : string or datetime
+            Returns only documents modified since this timestamp. Should be
+            supplied in ISO 8601 format.
+        deleted_since : string or datetime
+            Returns only documents deleted since this timestamp. Should be
+            supplied in ISO 8601 format.
+        profile_id : string
+            The id of the profile that the document belongs to, that does not
+            belong to any group. If not supplied returns users documents.
+        authored :
+            TODO
+        starred :
+        limit : string or int (default 20)
+            Largest allowable value is 500. This is really the page limit since
+            the iterator will allow exceeding this value.
+        order :
+            - 'asc' - sort the field in ascending order
+            ' 'desc' - sort the field in descending order
+        view :
+            - 'bib'
+            - 'client'
+            - 'tags' : returns user's tags
+            - 'patent'
+            - 'all'
+        sort : string
+            Field to sort on. Avaiable options:
+            - 'created'
+            - 'last_modified'
+            - 'title'
+
+        Examples
+        --------
+        from mendeley import API
+        m = API()
+        d = m.documents.get(limit=1)
+
+        """
+
+        url = BASE_URL + '/documents'
+        if 'id' in kwargs:
+            id = kwargs.pop('id')
+            url += '/%s/' % id
+
+        convert_datetime_to_string(kwargs, 'modified_since')
+        convert_datetime_to_string(kwargs, 'deleted_since')
+
+        view = kwargs.get('view')
+
+        if 'deleted_since' in kwargs:
+            view = 'deleted'
+
+        limit = kwargs.get('limit', 20)
+        response_params = {'fcn': document_fcns[view], 'view': view, 'limit': limit}
+
+        return self.parent.make_get_request(url, models.DocumentSet.create, kwargs, response_params)
+
     def deleted_files(self, **kwargs):
         """
         Parameters
@@ -471,7 +651,32 @@ class Documents(object):
     def create(self, **kwargs):
         """
         https://api.mendeley.com/apidocs#!/documents/createDocument
+
+        Request URL: https://api.mendeley.com/documents
+
+        Parameters
+        ----------
+        body : str? dict?
+            Enter values for the identifying dict probably?
+
+        Location of DOI in dict:
+            'identifiers' key has value which is its own dict.
+                Within that dict, DOI has key 'doi'.
+
+        From entering {"identifiers": {"doi": "10.1177/1073858414541484"}}
+        as input on the interactive "try it out" Mendeley API implementation,
+        it looks like "title" and "type" are required fields.
+
+        "title" = article title
+        "type" = 'journal', 'book', etc. Not data types.
+
+        Ex: {"title": "Motor Planning", "type": "journal", "identifiers": {"doi": "10.1177/1073858414541484"}}
+
         """
+
+        url = BASE_URL + '/documents'
+
+
         pass
 
     def create_from_file(self, file_path):
