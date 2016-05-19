@@ -1,4 +1,6 @@
 /mendeley/config.py
+/mendeley/testing_config.py
+/mendeley/acct_config.py
 /.idea/
 /data/
 
@@ -58,4 +60,5 @@ docs/_build/
 
 # Mendeley Developer Info
 mendeley_secret.txt
+mendeley_testing_secret.txt
 

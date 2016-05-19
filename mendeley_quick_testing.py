@@ -3,17 +3,27 @@
 Example function calls
 """
 
+import pdb
 
 from mendeley import client_library
 from mendeley import API
+
+doi = '10.1177/1073858414541484'
 
 temp = client_library.UserLibrary(verbose=True)
 
 m = API()
 
-import pdb
-pdb.set_trace()
+import pickle
+libname = 'data/client_library/karmentrout11@gmailcom.pickle'
+f = open(libname, 'rb')
+b = pickle.load(f)
 
+#pdb.set_trace()
+
+file = temp.get_single_paper('10.1177/1073858414541484')
+
+pdb.set_trace()
 
 
 """
