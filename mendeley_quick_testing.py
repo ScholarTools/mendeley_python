@@ -4,26 +4,43 @@ Example function calls
 """
 
 import pdb
-
+import string
+import random
 from mendeley import client_library
 from mendeley import API
+
+def random_entry():
+    d = dict()
+    d["title"] = ''.join(random.SystemRandom().choice(string.ascii_lowercase) for _ in range(8))
+    d["type"] = 'journal'
+    d["identifiers"] = dict()
+    d["identifiers"]["doi"] = '10.' + str(random.random())[2:12]
+    return d
+
 
 doi = '10.1177/1073858414541484'
 
 temp = client_library.UserLibrary(verbose=True)
+print([x['title'] for x in temp.raw])
 
 m = API()
+
+
+doc_data = random_entry()
+
+cj = m.documents.create(doc_data)
+print(cj)
+
 
 import pickle
 libname = 'data/client_library/karmentrout11@gmailcom.pickle'
 f = open(libname, 'rb')
 b = pickle.load(f)
 
-#pdb.set_trace()
+#file = temp.get_single_paper('10.1177/1073858414541484')
 
-file = temp.get_single_paper('10.1177/1073858414541484')
+document = temp.get_document('10.1177/1073858414541484')
 
-pdb.set_trace()
 
 
 """
