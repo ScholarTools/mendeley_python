@@ -281,7 +281,7 @@ class DeletedDocument(ResponseObject):
         super(DeletedDocument, self).__init__(json)
 
     def _null(self):
-        self.id
+        self.id = None
 
     @classmethod
     def fields(cls):
@@ -298,6 +298,56 @@ class File(ResponseObject):
     def __init__(self, json):
         super().__init__(self, json)
 
+
+class CreatedDocument(object):
+    """
+    Manages return info after creating a single document.
+
+    Includes a call to a method in API that adds a file
+    to this document. So the user can end up with this
+    object for a given document and uniquely add a file.
+
+    """
+
+    # TODO: implement method to add file.
+
+    def __init__(self, json, m):
+        """
+        Parameters
+        ----------
+        json : dict
+        m : mendeley.api._APIMethods
+
+
+        """
+        self.json = json
+        self.id = json['id']
+        self.location = 'https://api.mendeley.com/documents/' + self.id
+
+
+    @classmethod
+    def create(cls, json, m, params):
+        """
+        I believe this distinction was made to distinguish between instances
+        in which a set was required or instances in which by definition
+        only a single document would be returned.
+
+        This however needs to be clarified.
+        """
+        return DocumentSet(json, m)
+
+    def __repr__(self):
+        '''
+        Should probably change this.
+
+        Returns
+        -------
+        Currently, just the initial json (and badly). Maybe print more things?
+        '''
+        #pv = [self.json[key] for key in self.json.keys()]
+        #return utils.property_values_to_string(pv)
+        import json
+        return json.dumps(self.json)
 
 
 

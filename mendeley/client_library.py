@@ -84,6 +84,16 @@ class UserLibrary:
         pass
 
     def get_single_paper(self, doi):
+        """
+
+        Parameters
+        ----------
+        doi
+
+        Returns
+        -------
+
+        """
         # Search through library for a document with target DOI.
         #
         doc_id = None
@@ -95,16 +105,42 @@ class UserLibrary:
                     document = paper
                     break
 
-
         if doc_id is None:
             raise KeyError("DOI not found in library")
 
         file = self.api.files.get_single(document_id=doc_id)
 
-
-
         return file
 
+    def get_document(self, doi):
+        """
+        Returns the document (i.e. metadata) for a given DOI,
+        if the DOI is found in the library.
+
+        Parameters
+        ----------
+        doi
+
+        Returns
+        -------
+
+        """
+        # Search through library for a document with target DOI.
+        #
+        doc_id = None
+        document = None
+        for paper in self.raw:
+            if 'identifiers' in paper.keys():
+                if 'doi' in paper['identifiers'].keys():
+                    if paper['identifiers']['doi'] == doi:
+                        doc_id = paper['id']
+                        document = paper
+                        break
+
+        if doc_id is None:
+            raise KeyError("DOI not found in library")
+
+        return document
 
     def _load(self):
         # TODO: Check that the file is not empty ...
@@ -118,7 +154,7 @@ class UserLibrary:
             self.docs = None
 
     def _save(self):
-        d = {}
+        d = dict()
         d['file_version'] = self.FILE_VERSION
         d['raw'] = self.raw
         # d['raw_trash'] = self.raw_trash
@@ -358,7 +394,6 @@ def _raw_to_data_frame(raw, include_json=True):
     # t2 = time.clock()
     df['last_modified'] = df['last_modified'].apply(parse_datetime)
     # print(time.clock() - t2)
-
     df['issn'] = df['identifiers'].apply(parse_issn)
     df['pmid'] = df['identifiers'].apply(parse_pmid)
     df['doi'] = df['identifiers'].apply(parse_doi)

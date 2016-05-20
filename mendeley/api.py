@@ -57,6 +57,7 @@ from datetime import datetime
 from . import auth
 import requests
 import pdb
+import json
 from . import models
 from . import utils
 
@@ -151,7 +152,20 @@ class API(object):
 
         return_type = params.pop('_return_type', self.default_return_type)
 
-        r = self.s.get(url, params=params, auth=self.access_token, headers=None)
+        print(headers)
+
+        params = json.dumps(params)
+
+        r = self.s.post(url, data=params, auth=self.access_token, headers=headers)
+
+        if not r.ok:
+            # if r.status_code != good_status:
+            print(r.text)
+            print('')
+            # TODO: This should be improved
+            raise Exception('Call failed with status: %d' % (r.status_code))
+
+        return self.handle_return(r, return_type, response_params, object_fh)
 
     def make_get_request(self, url, object_fh, params, response_params=None):
         """
@@ -207,17 +221,20 @@ class API(object):
             # TODO: This should be improved
             raise Exception('Call failed with status: %d' % (r.status_code))
 
+        return self.handle_return(r, return_type, response_params, object_fh)
+
+    def handle_return(self, req, return_type, response_params, object_fh):
         if return_type is 'object':
             if response_params is None:
-                return object_fh(r.json(), self)
+                return object_fh(req.json(), self)
             else:
-                return object_fh(r.json(), self, response_params)
+                return object_fh(req.json(), self, response_params)
         elif return_type is 'json':
-            return r.json()
+            return req.json()
         elif return_type is 'raw':
-            return r.text
+            return req.text
         elif return_type is 'response':
-            return r
+            return req
         else:
             raise Exception('No match found for return type')
 
@@ -382,43 +399,6 @@ class Files(object):
 
         return file_id
 
-        pass
-
-    def get(self, **kwargs):
-        """
-        # https://api.mendeley.com/apidocs#!/annotations/getFiles
-
-        Parameters
-        ----------
-        id :
-        document_id :
-        catalog_id :
-        filehash :
-        mime_type :
-        file_name :
-        size :
-
-        Returns
-        -------
-
-        """
-        url = BASE_URL + '/documents'
-        if 'id' in kwargs:
-            id = kwargs.pop('id')
-            url += '/%s/' % id
-
-        convert_datetime_to_string(kwargs, 'modified_since')
-        convert_datetime_to_string(kwargs, 'deleted_since')
-
-        view = kwargs.get('view')
-
-        if 'deleted_since' in kwargs:
-            view = 'deleted'
-
-        limit = kwargs.get('limit', 20)
-        response_params = {'fcn': document_fcns[view], 'view': view, 'limit': limit}
-
-        return self.parent.make_get_request(url, models.DocumentSet.create, kwargs, response_params)
         pass
 
     def create(self, **kwargs):
@@ -648,7 +628,7 @@ class Documents(object):
         url = BASE_URL + '/deleted_documents'
         return self.parent.make_get_request(url, models.deleted_document_ids, kwargs)
 
-    def create(self, **kwargs):
+    def create(self, doc_data):
         """
         https://api.mendeley.com/apidocs#!/documents/createDocument
 
@@ -676,6 +656,14 @@ class Documents(object):
 
         url = BASE_URL + '/documents'
 
+        #doc_data = json.loads(doc_data)
+
+        #headers = {"content-disposition": "attachment; filename=\"response.bin\"; filename*=UTF-8''response.bin"}
+
+        headers = dict()
+        headers['Content-Type'] = 'application/vnd.mendeley-document.1+json'
+
+        return self.parent.make_post_request(url, models.CreatedDocument, doc_data, headers=headers)
 
         pass
 
