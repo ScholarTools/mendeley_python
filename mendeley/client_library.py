@@ -26,6 +26,7 @@ from .utils import float_or_none_to_string as fstr
 from .utils import get_list_class_display as cld
 from . import utils
 from .api import API
+from . import models
 
 
 class UserLibrary:
@@ -76,57 +77,25 @@ class UserLibrary:
         self.docs = sync_result.docs
         self._save()
 
-    def get_document_objects(self, doc_row_entries):
-        # TODO: Resolve from df rows to raw, then call
-        # constructor in models
-
-        pdb.set_trace()
-        pass
-
-    def get_single_paper(self, doi):
-        """
-
-        Parameters
-        ----------
-        doi
-
-        Returns
-        -------
-
-        """
-        # Search through library for a document with target DOI.
-        #
-        doc_id = None
-        document = None
-        for paper in self.raw:
-            if 'doi' in paper['identifiers'].keys():
-                if paper['identifiers']['doi'] == doi:
-                    doc_id = paper['id']
-                    document = paper
-                    break
-
-        if doc_id is None:
-            raise KeyError("DOI not found in library")
-
-        file = self.api.files.get_single(document_id=doc_id)
-
-        return file
-
-    def get_document(self, doi):
+    def get_document(self, doi, return_json=False):
         """
         Returns the document (i.e. metadata) for a given DOI,
         if the DOI is found in the library.
 
         Parameters
         ----------
-        doi
+        doi : str
+        return_json : bool
 
         Returns
         -------
+        models.CreatedDocument object
+            If return_json is False
+        JSON
+            If return_json is True
 
         """
         # Search through library for a document with target DOI.
-        #
         doc_id = None
         document = None
         for paper in self.raw:
@@ -136,11 +105,14 @@ class UserLibrary:
                         doc_id = paper['id']
                         document = paper
                         break
-
         if doc_id is None:
             raise KeyError("DOI not found in library")
 
-        return document
+        if return_json:
+            return document
+        else:
+            doc_obj = models.CreatedDocument(document, API)
+            return doc_obj
 
     def _load(self):
         # TODO: Check that the file is not empty ...
@@ -192,6 +164,8 @@ class Sync(object):
         self.verbose = verbose
 
         self.raw = raw
+
+        #pdb.set_trace()
 
         # Populated_values
         # -----------------
@@ -288,7 +262,7 @@ class Sync(object):
 
         start_modified_time = ctime()
         # TODO: Include -1 here ...
-        doc_set = self.api.documents.get(modified_since=newest_modified_time)
+        doc_set = self.api.documents.get(modified_since=newest_modified_time, view='all')
         raw_au_docs = [x.json for x in doc_set]
         self.new_and_updated_docs = doc_set.docs
         self.time_modified_check = ctime() - start_modified_time
@@ -296,7 +270,7 @@ class Sync(object):
         if len(raw_au_docs) == 0:
             return
 
-        # TODO: Update name, I thougt this was referrring to our official copy
+        # TODO: Update name, I thought this was referring to our official copy
         # which is currently self.docs
         df = _raw_to_data_frame(raw_au_docs)
 

@@ -7,7 +7,7 @@ import pdb
 import string
 import random
 from mendeley import client_library
-from mendeley import API
+from mendeley import api
 
 def random_entry():
     d = dict()
@@ -23,24 +23,34 @@ doi = '10.1177/1073858414541484'
 temp = client_library.UserLibrary(verbose=True)
 print([x['title'] for x in temp.raw])
 
-m = API()
+m = api.API()
 
-
+'''
 doc_data = random_entry()
+print(doc_data['title'])
 
 cj = m.documents.create(doc_data)
 print(cj)
 
+file = {'file': open('test.pdf', 'rb')}
+added = cj.addfile(file)
 
+print(added)
+'''
+
+'''
 import pickle
 libname = 'data/client_library/karmentrout11@gmailcom.pickle'
 f = open(libname, 'rb')
 b = pickle.load(f)
-
-#file = temp.get_single_paper('10.1177/1073858414541484')
+'''
 
 document = temp.get_document('10.1177/1073858414541484')
+print(document)
+#document.addfile(file)
 
+#file = {'file': open('test.pdf', 'rb')}
+#api.Files.linkfile(api.Files, file, document.json)
 
 
 """
