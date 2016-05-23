@@ -120,8 +120,8 @@ class Person(ResponseObject):
 
     def __repr__(self):
         return u'' + \
-               'first_name: %s\n' % self.first_name + \
-               ' last_name: %s\n' % self.last_name
+           'first_name: %s\n' % self.first_name + \
+           'last_name: %s\n' % self.last_name
 
 
 class Annotation(object):
@@ -320,10 +320,13 @@ class CreatedDocument(object):
 
 
         """
+        self.api = m
         self.json = json
-        self.id = json['id']
-        self.location = 'https://api.mendeley.com/documents/' + self.id
-
+        self.doc_id = json['id']
+        self.title = json['title']
+        self.doi = json['identifiers']['doi']
+        self.location = 'https://api.mendeley.com/documents/' + self.doc_id
+        self.default_return_type = 'object'
 
     @classmethod
     def create(cls, json, m, params):
@@ -336,20 +339,62 @@ class CreatedDocument(object):
         """
         return DocumentSet(json, m)
 
-    def __repr__(self):
-        '''
-        Should probably change this.
+    def addfile(self, file):
+        from .api import API
 
-        Returns
-        -------
-        Currently, just the initial json (and badly). Maybe print more things?
-        '''
+        base_url = 'https://api.mendeley.com'
+        url = base_url + '/files'
+        object_fh = LinkedFile
+
+        # Get rid of spaces in filename
+        filename = self.title.replace(' ', '_') + '.pdf'
+
+        params = None
+
+        # Set headers
+        headers = dict()
+        headers['Content-Type'] = 'application/pdf'
+        headers['Content-Disposition'] = 'attachment; filename=%s' % filename
+        headers['Link'] = '<' + self.location + '>; rel="document"'
+
+        return API.make_post_request(API(), url, object_fh, params, headers=headers, files=file)
+
+    def __repr__(self):
         #pv = [self.json[key] for key in self.json.keys()]
         #return utils.property_values_to_string(pv)
-        import json
-        return json.dumps(self.json)
+        return u'' + \
+            'Title: %s\n' % self.title + \
+            'DOI: %s\n' % self.doi + \
+            'Doc ID %s\n' % self.doc_id + \
+            'Doc URL %s\n' % self.location
 
 
+class LinkedFile(object):
+    """
+    Manages return info after linking a file to a doc.
+
+    """
+
+    def __init__(self, json, m):
+        """
+        Parameters
+        ----------
+        json : dict
+        m : mendeley.models.CreatedDocument object
+
+        """
+        self.json = json
+        self.title = json['file_name']
+        self.file_id = json['id']
+        self.doc_id = json['document_id']
+        self.location = 'https://api.mendeley.com/files/' + self.file_id
+
+    def __repr__(self):
+        return u'' + \
+            'Title: %s\n' % self.title + \
+            'File ID %s\n' % self.file_id + \
+            'File URL %s\n' % self.location + \
+            'Doc ID %s\n' % self.doc_id
 
 class Document(ResponseObject):
     """
