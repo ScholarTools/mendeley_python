@@ -141,22 +141,20 @@ class API(object):
         pv = ['public_only', self.public_only, 'user_name', self.user_name]
         return utils.property_values_to_string(pv)
 
-    def make_post_request(self, url, object_fh, params, response_params=None, headers=None):
+    def make_post_request(self, url, object_fh, params, response_params=None, headers=None, files=None):
 
-        # I'd like to be able to merge this with the get request method
         #
-        # This code is currently in flux ...
-
         # http://docs.python-requests.org/en/latest/user/advanced/#streaming-uploads
-        # files=files
 
-        return_type = params.pop('_return_type', self.default_return_type)
+        if params is not None:
+            return_type = params.pop('_return_type', self.default_return_type)
+        else:
+            return_type = self.default_return_type
 
-        print(headers)
+        if files is None:
+            params = json.dumps(params)
 
-        params = json.dumps(params)
-
-        r = self.s.post(url, data=params, auth=self.access_token, headers=headers)
+        r = self.s.post(url, data=params, auth=self.access_token, headers=headers, files=files)
 
         if not r.ok:
             # if r.status_code != good_status:
@@ -382,8 +380,6 @@ class Files(object):
         # Not sure what this should be doing
         response_params = {'document_id': doc_id}
 
-        # x = self.parent.make_get_request(url, models.File, kwargs)
-
         # Didn't want to deal with make_get_request so I did it myself.
         response = self.parent.s.get(url, params=kwargs, auth=self.parent.access_token)
         json = response.json()[0]
@@ -394,35 +390,45 @@ class Files(object):
 
         file_response = self.parent.s.get(file_url, auth=self.parent.access_token)
 
-        import pdb
-        pdb.set_trace()
-
         return file_id
 
         pass
 
-    def create(self, **kwargs):
+    def linkfile(self, file, params, file_url=None):
         """
-        https://api.mendeley.com/apidocs#!/files/uploadOrLinkFile
-
-        Request URL: https://api.mendeley.com/files
 
         Parameters
         ----------
-        id :
-        document_id :
-        catalog_id :
-        filehash :
-        mime_type :
-        file_name :
-        size :
+        file : dict
+            Of form {'file' : Buffered Reader for file}
+            The buffered reader was made by opening the pdf using open().
+        params : dict
+            Includes paper title, ID of the document to which
+            the file will be attached, and return type.
+
+        Returns
+        -------
+        Object specified by params['_return_type'].
+            Generally models.LinkedFile object
 
         """
+        base_url = 'https://api.mendeley.com'
+        url = base_url + '/files'
 
-        url = BASE_URL + '/files'
+        # Extract info from params
+        title = params['title']
+        doc_id = params['id']
+        object_fh = models.LinkedFile
 
+        # Get rid of spaces in filename
+        filename = title.replace(' ', '_') + '.pdf'
 
-        pass
+        headers = dict()
+        headers['Content-Type'] = 'application/pdf'
+        headers['Content-Disposition'] = 'attachment; filename=%s' % filename
+        headers['Link'] = '<' + base_url + '/documents/' + doc_id + '>; rel="document"'
+
+        API.make_post_request(API(), url, object_fh, params, headers=headers, files=file)
 
     def delete(self):
         pass
@@ -655,10 +661,6 @@ class Documents(object):
         """
 
         url = BASE_URL + '/documents'
-
-        #doc_data = json.loads(doc_data)
-
-        #headers = {"content-disposition": "attachment; filename=\"response.bin\"; filename*=UTF-8''response.bin"}
 
         headers = dict()
         headers['Content-Type'] = 'application/vnd.mendeley-document.1+json'
