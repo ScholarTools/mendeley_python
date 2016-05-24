@@ -60,7 +60,8 @@ class UserLibrary:
         pv = ['api', cld(self.api),
               'user_name', self.user_name,
               'docs', cld(self.docs),
-              'raw', cld(self.raw)]
+              'raw', cld(self.raw),
+              'doc_objects', cld(self.doc_objects)]
         return utils.property_values_to_string(pv)
 
     def sync(self):
@@ -74,6 +75,7 @@ class UserLibrary:
         sync_result = Sync(self.api, self.raw, verbose=self.verbose)
         self.sync_result = sync_result
         self.raw = sync_result.raw
+        self.doc_objects = [models.Document(json, API) for json in self.raw]
         self.docs = sync_result.docs
         self._save()
 
@@ -89,7 +91,7 @@ class UserLibrary:
 
         Returns
         -------
-        models.CreatedDocument object
+        models.Document object
             If return_json is False
         JSON
             If return_json is True
@@ -111,7 +113,7 @@ class UserLibrary:
         if return_json:
             return document
         else:
-            doc_obj = models.CreatedDocument(document, API)
+            doc_obj = models.Document(document, API)
             return doc_obj
 
     def _load(self):
@@ -306,7 +308,9 @@ class Sync(object):
         self.verbose_print('Checking trash')
 
         trash_set = self.api.trash.get(limit=500, view='all')
-        self.trash_ids = [x.id for x in trash_set]
+        import pdb
+        #pdb.set_trace()
+        self.trash_ids = [x.doc_id for x in trash_set]
 
         self.verbose_print('Finished checking trash, %d documents found' % len(self.trash_ids))
         self.time_trash_retrieval = ctime() - trash_start_time

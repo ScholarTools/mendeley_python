@@ -299,7 +299,7 @@ class File(ResponseObject):
         super().__init__(self, json)
 
 
-class CreatedDocument(object):
+class Document(object):
     """
     Manages return info after creating a single document.
 
@@ -308,8 +308,6 @@ class CreatedDocument(object):
     object for a given document and uniquely add a file.
 
     """
-
-    # TODO: implement method to add file.
 
     def __init__(self, json, m):
         """
@@ -324,9 +322,13 @@ class CreatedDocument(object):
         self.json = json
         self.doc_id = json['id']
         self.title = json['title']
+        self.tags = None
         self.doi = json['identifiers']['doi']
         self.location = 'https://api.mendeley.com/documents/' + self.doc_id
         self.default_return_type = 'object'
+
+        if 'tags' in json.keys():
+            self.tags = json['tags']
 
     @classmethod
     def create(cls, json, m, params):
@@ -359,11 +361,80 @@ class CreatedDocument(object):
 
         return API.make_post_request(API(), url, object_fh, params, headers=headers, files=file)
 
+    def addfile_from_url(self, file_url):
+        from contextlib import closing
+        import requests
+        '''
+        #
+        # Copied over from addfile
+        #
+        from .api import API
+        base_url = 'https://api.mendeley.com'
+        url = base_url + '/files'
+        object_fh = LinkedFile
+        # Get rid of spaces in filename
+        filename = self.title.replace(' ', '_') + '.pdf'
+        params = None
+        # Set headers
+        headers = dict()
+        headers['Content-Type'] = 'application/pdf'
+        headers['Content-Disposition'] = 'attachment; filename=%s' % filename
+        headers['Link'] = '<' + self.location + '>; rel="document"'
+        # ---------------------------------------------------------
+        '''
+        from . import auth
+        user_name = None
+        s = requests.session()
+        access_token = auth.retrieve_user_credentials(user_name, session=s)
+
+        resp = requests.get(file_url, auth=access_token)
+        import pdb
+        pdb.set_trace()
+        file = {'file' : resp.content}
+        return self.addfile(file)
+
+        '''
+        import pdb
+        pdb.set_trace()
+
+        return_type = 'object'
+
+        with closing(requests.get(file_url, stream=True, auth=access_token)):
+            r = s.post(url, data=resp.content, auth=access_token, headers=headers)
+
+        if not r.ok:
+            # if r.status_code != good_status:
+            print(r.text)
+            print('')
+            # TODO: This should be improved
+            raise Exception('Call failed with status: %d' % (r.status_code))
+
+        response_params = None
+
+        return API.handle_return(API(), r, return_type, response_params, object_fh)
+        '''
+
+    def addTag(self, tag):
+        from .api import API
+        pass
+
+    def add_all_references(self):
+        import sys
+
+        #sys.path.append('/reference_resolver/')
+        import pdb
+        #pdb.set_trace()
+        import reference_resolver as rr
+        info = rr.resolve_doi(self.doi)
+
+        return info
+
     def __repr__(self):
         #pv = [self.json[key] for key in self.json.keys()]
         #return utils.property_values_to_string(pv)
         return u'' + \
             'Title: %s\n' % self.title + \
+            'Tags: %s\n' % self.tags + \
             'DOI: %s\n' % self.doi + \
             'Doc ID %s\n' % self.doc_id + \
             'Doc URL %s\n' % self.location
@@ -380,7 +451,7 @@ class LinkedFile(object):
         Parameters
         ----------
         json : dict
-        m : mendeley.models.CreatedDocument object
+        m : mendeley.models.Document object
 
         """
         self.json = json
@@ -396,6 +467,7 @@ class LinkedFile(object):
             'File URL %s\n' % self.location + \
             'Doc ID %s\n' % self.doc_id
 
+'''
 class Document(ResponseObject):
     """
 
@@ -496,6 +568,24 @@ class Document(ResponseObject):
             return pv
         else:
             return utils.property_values_to_string(pv)
+'''
+
+class Folder(object):
+    """
+
+    """
+    # TODO: Make this class do things
+
+    def __init__(self, json, m):
+        pass
+
+    def add_document(self):
+        pass
+
+    def __repr__(self):
+        pass
+
+    pass
 
 
 # ???? How does this compare to
@@ -588,6 +678,7 @@ class TagsDocument(Document):
     def __repr__(self):
         pv = (super(TagsDocument, self).__repr__(pv_only=True) + ['tags', td(self.tags)])
         return utils.property_values_to_string(pv)
+
 
 
 class AllDocument(Document):
