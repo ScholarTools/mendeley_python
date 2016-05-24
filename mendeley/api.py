@@ -133,6 +133,7 @@ class API(object):
         self.annotations = Annotations(self)
         self.definitions = Definitions(self)
         self.documents = Documents(self)
+        self.folders = Folders(self)
         self.files = Files(self)
         self.trash = Trash(self)
 
@@ -430,8 +431,64 @@ class Files(object):
 
         API.make_post_request(API(), url, object_fh, params, headers=headers, files=file)
 
+    def linkfile_from_url(self, file, params, file_url):
+        """
+
+        Parameters
+        ----------
+        file : dict
+            Of form {'file' : Buffered Reader for file}
+            The buffered reader was made by opening the pdf using open().
+        params : dict
+            Includes paper title, ID of the document to which
+            the file will be attached, and return type.
+        file_url : str
+            Direct URL to a pdf file.
+
+        Returns
+        -------
+        Object specified by params['_return_type'].
+            Generally models.LinkedFile object
+
+        """
+        base_url = 'https://api.mendeley.com'
+        url = base_url + '/files'
+
+        # Extract info from params
+        title = params['title']
+        doc_id = params['id']
+        object_fh = models.LinkedFile
+
+        # Get rid of spaces in filename
+        filename = title.replace(' ', '_') + '.pdf'
+
+        headers = dict()
+        headers['Content-Type'] = 'application/pdf'
+        headers['Content-Disposition'] = 'attachment; filename=%s' % filename
+        headers['Link'] = '<' + base_url + '/documents/' + doc_id + '>; rel="document"'
+
+        API.make_post_request(API(), url, object_fh, params, headers=headers, files=file)
+
     def delete(self):
+        # TODO: make this work
         pass
+
+
+class Folders(object):
+    def __init__(self, parent):
+        self.parent = parent
+
+    def create(self, name):
+        url = BASE_URL + '/folders'
+
+        # Clean up name
+        name = name.replace(' ', '_')
+        name = urllib_quote(name)
+        params = {'name' : name}
+
+        headers = {'Content-Type' : 'application/vnd.mendeley-folder.1+json'}
+
+        return self.parent.make_post_request(url, models.Folder, params, headers=headers)
 
 
 class Trash(object):
@@ -665,9 +722,8 @@ class Documents(object):
         headers = dict()
         headers['Content-Type'] = 'application/vnd.mendeley-document.1+json'
 
-        return self.parent.make_post_request(url, models.CreatedDocument, doc_data, headers=headers)
+        return self.parent.make_post_request(url, models.Document, doc_data, headers=headers)
 
-        pass
 
     def create_from_file(self, file_path):
         """
