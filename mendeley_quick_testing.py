@@ -38,24 +38,40 @@ m.documents.create(ae)
 '''
 
 actual_doc = temp.get_document('10.1002/bit.25159')
-info = actual_doc.add_all_references()
+#info = actual_doc.add_all_references()
 
-print(info)
+#print(info)
 
-'''
+def test_get_pdf(pdf_url):
+    import requests
+    resp = requests.get(pdf_url)
+    if 'text/html' in resp.headers['Content-Type']:
+        with open('test_file.html', 'wb') as file:
+            file.write(resp.content)
+    else:
+        with open('test_pdf.pdf', 'wb') as file:
+            file.write(resp.content)
+
+
 doc_data = random_entry()
 print(doc_data['title'])
 
 cj = m.documents.create(doc_data)
 print(cj)
-'''
 
-file_url = 'http://onlinelibrary.wiley.com/doi/10.1002/biot.201400046/pdf'
-#file_url = 'http://onlinelibrary.wiley.com/store/10.1002/biot.201400046/asset/1402_ftp.pdf?v=1&t=iols4jud&s=c71a3807e2f8bc28879fc93140fdc378fe1b86e1'
+
 #added = cj.addfile_from_url(file_url)
 #print(added)
 
-#pdb.set_trace()
+test_file = 'http://onlinelibrary.wiley.com/doi/10.1002/biot.201400828/pdf'
+wy_test_file = 'http://onlinelibrary.wiley.com/doi/10.1002/biot.201400046/pdf'
+sd_test_file = 'http://ac.els-cdn.com/S0006899313013048/1-s2.0-S0006899313013048-main.pdf?_tid=d0627c6c-22b6-11e6-bf6e-00000aab0f27&acdnat=1464208105_97b45bc2a955e54bd12cadd26e2e053c'
+sp_test_file = 'http://download.springer.com/static/pdf/60/art%253A10.1007%252Fs10514-015-9513-5.pdf?originUrl=http%3A%2F%2Flink.springer.com%2Farticle%2F10.1007%2Fs10514-015-9513-5&token2=exp=1464211096~acl=%2Fstatic%2Fpdf%2F60%2Fart%25253A10.1007%25252Fs10514-015-9513-5.pdf%3ForiginUrl%3Dhttp%253A%252F%252Flink.springer.com%252Farticle%252F10.1007%252Fs10514-015-9513-5*~hmac=f82c4baeb735331580f20ab0b694b73a749fcbe905fdaf1a3821c2327a7b12c7'
+
+#test_get_pdf(sp_test_file)
+
+added = cj.addfile_from_url(sp_test_file)
+#print(added)
 
 '''
 file = {'file': open('test.pdf', 'rb')}
