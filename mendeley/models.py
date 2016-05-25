@@ -364,55 +364,19 @@ class Document(object):
     def addfile_from_url(self, file_url):
         from contextlib import closing
         import requests
-        '''
-        #
-        # Copied over from addfile
-        #
-        from .api import API
-        base_url = 'https://api.mendeley.com'
-        url = base_url + '/files'
-        object_fh = LinkedFile
-        # Get rid of spaces in filename
-        filename = self.title.replace(' ', '_') + '.pdf'
-        params = None
-        # Set headers
-        headers = dict()
-        headers['Content-Type'] = 'application/pdf'
-        headers['Content-Disposition'] = 'attachment; filename=%s' % filename
-        headers['Link'] = '<' + self.location + '>; rel="document"'
-        # ---------------------------------------------------------
-        '''
-        from . import auth
-        user_name = None
-        s = requests.session()
-        access_token = auth.retrieve_user_credentials(user_name, session=s)
+        from pypub.publishers.pub_resolve import resolve_link
+        import pypub.publishers.pub_objects as pub_objects
 
-        resp = requests.get(file_url, auth=access_token)
-        import pdb
-        pdb.set_trace()
-        file = {'file' : resp.content}
+        # Figure out publisher from URL and instantiate publisher object
+        pub_dict = resolve_link(file_url)
+        pub_obj = pub_dict['object']
+        pub = getattr(pub_objects, pub_obj)(**pub_dict)
+
+        # Format response content
+        response = pub.extract_pdf(file_url)
+        file = {'file': response.content}
+
         return self.addfile(file)
-
-        '''
-        import pdb
-        pdb.set_trace()
-
-        return_type = 'object'
-
-        with closing(requests.get(file_url, stream=True, auth=access_token)):
-            r = s.post(url, data=resp.content, auth=access_token, headers=headers)
-
-        if not r.ok:
-            # if r.status_code != good_status:
-            print(r.text)
-            print('')
-            # TODO: This should be improved
-            raise Exception('Call failed with status: %d' % (r.status_code))
-
-        response_params = None
-
-        return API.handle_return(API(), r, return_type, response_params, object_fh)
-        '''
 
     def addTag(self, tag):
         from .api import API
@@ -421,7 +385,6 @@ class Document(object):
     def add_all_references(self):
         import sys
 
-        #sys.path.append('/reference_resolver/')
         import pdb
         #pdb.set_trace()
         import reference_resolver as rr
