@@ -383,14 +383,39 @@ class Document(object):
         pass
 
     def add_all_references(self):
-        import sys
 
-        import pdb
-        #pdb.set_trace()
         import reference_resolver as rr
         info = rr.resolve_doi(self.doi)
 
-        return info
+        refs = info['references']
+
+        total_refs = len(refs)
+        without_dois = 0
+        all_ref_dois = []
+
+        for ref in refs:
+            if 'doi' in ref.keys() and ref['doi'] is not None:
+                all_ref_dois.append(ref['doi'])
+            else:
+                without_dois += 1
+
+        print(all_ref_dois)
+
+        all_reference_info = []
+        unresolved_doi_prefixes = 0
+        for doi in all_ref_dois:
+            try:
+                ref_info = rr.resolve_doi(doi)
+                all_reference_info.append(ref_info)
+                print(ref_info)
+            except IndexError:
+                print('%s not categorized' % doi)
+                unresolved_doi_prefixes += 1
+
+
+        return_bundle = {'total_refs':total_refs, 'all_ref_dois':all_ref_dois, 'without_dois':without_dois}
+        return_bundle['all_reference_info'] = all_reference_info
+        return return_bundle
 
     def __repr__(self):
         #pv = [self.json[key] for key in self.json.keys()]
