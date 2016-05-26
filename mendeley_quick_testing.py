@@ -18,6 +18,16 @@ def random_entry():
     d["tags"] = ["cool paper"]
     return d
 
+def test_get_pdf(pdf_url):
+    import requests
+    resp = requests.get(pdf_url)
+    if 'text/html' in resp.headers['Content-Type']:
+        with open('test_file.html', 'wb') as file:
+            file.write(resp.content)
+    else:
+        with open('test_pdf.pdf', 'wb') as file:
+            file.write(resp.content)
+
 
 doi = '10.1177/1073858414541484'
 
@@ -35,30 +45,30 @@ ae["title"] = 'Bioengineering Virus-Like Particles As Vaccines'
 ae["type"] = 'journal'
 ae["identifiers"] = {"doi" : '10.1002/bit.25159'}
 m.documents.create(ae)
+
+ae = dict()
+ae["title"] = 'CRISPR/Cas9-mediated genome engineering: An adeno-associated viral (AAV) vector toolbox'
+ae["type"] = 'journal'
+ae["identifiers"] = {"doi" : '10.1002/biot.201400046'}
+m.documents.create(ae)
 '''
 
-actual_doc = temp.get_document('10.1002/bit.25159')
-#info = actual_doc.add_all_references()
+actual_doc = temp.get_document('10.1002/biot.201400046')
+return_bundle = actual_doc.add_all_references()
 
-#print(info)
+print(return_bundle)
+print('total number of references: ' + str(return_bundle['total_refs']))
+print('refs without DOIs: ' + str(return_bundle['without_dois']))
 
-def test_get_pdf(pdf_url):
-    import requests
-    resp = requests.get(pdf_url)
-    if 'text/html' in resp.headers['Content-Type']:
-        with open('test_file.html', 'wb') as file:
-            file.write(resp.content)
-    else:
-        with open('test_pdf.pdf', 'wb') as file:
-            file.write(resp.content)
+#pdb.set_trace()
 
-
+'''
 doc_data = random_entry()
 print(doc_data['title'])
 
 cj = m.documents.create(doc_data)
 print(cj)
-
+'''
 
 #added = cj.addfile_from_url(file_url)
 #print(added)
@@ -70,7 +80,7 @@ sp_test_file = 'http://download.springer.com/static/pdf/60/art%253A10.1007%252Fs
 
 #test_get_pdf(sp_test_file)
 
-added = cj.addfile_from_url(sp_test_file)
+#added = cj.addfile_from_url(sp_test_file)
 #print(added)
 
 '''
@@ -80,53 +90,9 @@ added = cj.addfile(file)
 print(added)
 '''
 
-'''
-import pickle
-libname = 'data/client_library/karmentrout11@gmailcom.pickle'
-f = open(libname, 'rb')
-b = pickle.load(f)
-'''
-
-document = temp.get_document('10.1177/1073858414541484')
-print(document)
+#document = temp.get_document('10.1177/1073858414541484')
+#print(document)
 #document.addfile(file)
 
 #file = {'file': open('test.pdf', 'rb')}
 #api.Files.linkfile(api.Files, file, document.json)
-
-
-"""
-#This is old code
-#------------------------------------------------------------------------------
-
-um  = mapi.UserMethods()
-wtf = um.docs_get_details()
-import pdb
-pdb.set_trace()
-wtf = um.profile_get_info()
-#wtf = um.docs_get_library_ids(get_all=True)
-
-
-
-#4 Public Testing
-#-------------------------------
-#pc = auth.get_public_credentials()
-#pm = mapi.PublicMethods()
-#ta = pm.get_top_authors()
-
-import pdb
-pdb.set_trace()
-
-#
-##wtf = pm.get_entry_details(10461217,'pmid')
-##wtf = pm.get_entry_details(12345,'pmid')
-#import pdb
-#pdb.set_trace()
-#
-#pm.search_Mendeley_catalog('Year:2007 Author:Grill') #Nothing :/
-
-
-
-
-#pdb.set_trace()
-"""
