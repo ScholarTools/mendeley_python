@@ -204,10 +204,15 @@ class API(object):
 
         return_type = params.pop('_return_type', self.default_return_type)
 
+        # This was newly introduced, apparently? Each dev token is only good for 90 days
+        # https://development-tokens.mendeley.com/
+        dev_token = 'ODUsMTQ3MjA0NDg5OTIwNSxTLWdkT1lsS1BwN2h0ekkxeHlyTWJCUG9NR1k'
+        header = {'Development-Token' : dev_token}
+
         # NOTE: We make authorization go through the access token. The request
         # will call the access_token prior to sending the request. Specifically
         # the __call__ method is called.
-        r = self.s.get(url, params=params, auth=self.access_token)
+        r = self.s.get(url, params=params, auth=self.access_token, headers=header)
 
         self.last_url = url
         self.last_response = r
