@@ -412,7 +412,6 @@ class Document(object):
                 print('%s not categorized' % doi)
                 unresolved_doi_prefixes += 1
 
-
         return_bundle = {'total_refs':total_refs, 'all_ref_dois':all_ref_dois, 'without_dois':without_dois}
         return_bundle['all_reference_info'] = all_reference_info
         return return_bundle
