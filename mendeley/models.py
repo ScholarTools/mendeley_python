@@ -375,7 +375,15 @@ class Document(object):
         """
         return DocumentSet(json, m)
 
-    def add_file(self, file):
+    def addfile(self, file):
+
+        #JAH: change to add_file
+        #JAH: move most of this code into the API module and call that method
+        #   from this method
+        #   
+        #   self.api.documents.add_file() <= TODO: decide on inputs to that function
+        #JAH: What is file? <= be more specific with naming things => file_path? pdf_file_path?
+        
         from .api import API
 
         base_url = 'https://api.mendeley.com'
@@ -395,7 +403,21 @@ class Document(object):
 
         return API.make_post_request(API(), url, object_fh, params, headers=headers, files=file)
 
-    def add_file_from_url(self, file_url):
+    def addfile_from_url(self, file_url):
+
+        #JAH: file_url is not specific. Why does a file_url need to be resolved? 
+        #Haven't you specified the url to the file?
+        #
+        #JAH: Part of me thinks that you could merge this with the above function
+        #and have different switches depending upon which optional input is not 
+        #None - note that you don't need to worry about the user specifying
+        #multiple inputs, just check if one value is set, if it isn't, go onto
+        #the next value, until you find one that is specified
+        #
+        #   file_path, doi, document_url (vs file, which is what I think you
+        #   are using file_url to refer to here), pmid, file_url 
+        #   (direct link to the file)        
+        
         from contextlib import closing
         import requests
         from pypub.publishers.pub_resolve import resolve_link
@@ -466,6 +488,8 @@ class LinkedFile(object):
     Manages return info after linking a file to a doc.
 
     """
+    
+    #JAH: How is this different than the File class?
 
     def __init__(self, json, m):
         """
@@ -475,6 +499,9 @@ class LinkedFile(object):
         m : mendeley.models.Document object
 
         """
+        
+        #JAH: Why not use lazy loading with the exception
+        #of possibly location? <= inherit from ResponseObject
         self.json = json
         self.title = json['file_name']
         self.file_id = json['id']
@@ -482,11 +509,24 @@ class LinkedFile(object):
         self.location = 'https://api.mendeley.com/files/' + self.file_id
 
     def __repr__(self):
+        
+        #JAH: Please keep the names the same as the attributes.
+        #e.g. => title, not Title
+        #e.g. => file_id, not File ID or file ID (i.e. keep underscores too)
+        #
+        #for something like location vs File URL, should the attribute
+        #be file_url instead of location since you are changing it?
+        
         return u'' + \
             'Title: %s\n' % self.title + \
             'File ID %s\n' % self.file_id + \
             'File URL %s\n' % self.location + \
             'Doc ID %s\n' % self.doc_id
+            
+
+#JAH: Why was this code removed? It seems like the new Document adds some method
+#features but removes a lot of lazy loading and tab completion? We can talk
+#about this face to face if necessary.
 
 '''
 class Document(ResponseObject):
@@ -719,7 +759,7 @@ Catalog Documents
 class CatalogDocument(object):
     """
     
-    TODOO: This id old and needs to up updated like
+    TODOO: This is old and needs to up updated like
     Attributes
     ----------
     
