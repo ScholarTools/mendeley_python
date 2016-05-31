@@ -1,0 +1,1 @@
+Folder created for semi-internal notes related to repository code development.
