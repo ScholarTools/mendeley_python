@@ -7,6 +7,7 @@ from . import config
 import os
 import inspect
 
+dev_token = 'ODUsMTQ3MjA0NDg5OTIwNSxTLWdkT1lsS1BwN2h0ekkxeHlyTWJCUG9NR1k'
 
 def float_or_none_to_string(x):
     if x is None:
