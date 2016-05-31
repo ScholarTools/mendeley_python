@@ -3,17 +3,20 @@ This repo implements the Mendeley API in Python. It also implements a client lib
 
 ##Motivation##
 
-My focus is on developing scripting access to my Mendeley data. As a simple example, I might wish to know which of my Mendeley entries are missing valid Pubmed IDs, and then remedy this by adding them. Doing this would help to ensure higher quality meta data for my entries. As another example, I might wish to know which of the references from a paper I am reading are in my library or not. By writing code we can make a query to the API for this information.
+The focus is on developing scripting access to my Mendeley data, particularly user data. As a simple example, one might wish to know which of their Mendeley entries are missing valid Pubmed IDs, and remedy this by adding them. Doing this would help to ensure higher quality meta data. As another example, one might wish to know which of the references from a paper they are reading are in their library or not. By writing code we can make a query to the API for this information.
 
-Mendeley provides a [Python API](https://github.com/Mendeley/mendeley-python-sdk). When originally implementing this code I found the API to be lacking. It (the Mendeley version) has since been updated substantially. 
+Mendeley provides a [Python SDK](https://github.com/Mendeley/mendeley-python-sdk). This version is meant to provide tighter support (specifically integration of methods into response objects) for further analysis.  This version does not yet implement all available [API methods] (https://api.mendeley.com/apidocs/docs) although they are slowly being added. Additionally, adding new methods is relatively straightforward.
 
-At this point I find my version easier to understand although it is not fully implemented.
 
 ##Current Plans##
 
-(as of February 25, 2016)
+(as of May 30, 2016)
 
-I'm currently working on another library (TODO: Insert link) for extracting references for a given paper. Once this is done, I'll be implementing code to analyze whether or not these references are in the library or not.
+We are currently working on building in support for a reference retrieval program. Steps in this program include:
+
+1. Retrieving references for a paper (via the pypub and reference_resolver repositories)
+2. Determining which references are in the user library.
+3. Adding missing references (on demand) via a GUI along with the main file (article).
 
 ## Getting Started ##
 
@@ -28,9 +31,11 @@ c = client_library.UserLibrary()
 
 ##Contributing##
 
-I would love to get help in moving this code forward. If you're interested feel free to send me an email and we can chat! 
+We welcome contributions. If you are interested please email Jim.
 
 ## Requirements ##
+
+TODO: This is out of date
 
 This needs some work but relies heavily on:
 1. **Requests**
