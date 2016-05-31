@@ -35,8 +35,10 @@ class UserLibrary:
     """
     Attributes
     ----------
+    sync_result :
+    doc_objects :
     docs : Pandas entry
-    raw : list of dicts
+    raw : list of json object dicts
     raw_trash : list of dicts
 
     """
@@ -77,6 +79,9 @@ class UserLibrary:
         sync_result = Sync(self.api, self.raw, verbose=self.verbose)
         self.sync_result = sync_result
         self.raw = sync_result.raw
+        
+        #JAH: This could be a relatively expensive operation. Do we really
+        #need it?
         self.doc_objects = [models.Document(json, API) for json in self.raw]
         self.docs = sync_result.docs
         self._save()
@@ -85,6 +90,8 @@ class UserLibrary:
         """
         Returns the document (i.e. metadata) for a given DOI,
         if the DOI is found in the library.
+
+        #TODO: Build in support for other identifier searches
 
         Parameters
         ----------
@@ -99,6 +106,8 @@ class UserLibrary:
             If return_json is True
 
         """
+        
+        #JAH: rewrite with Pandas
         # Search through library for a document with target DOI.
         doc_id = None
         document = None
@@ -109,6 +118,7 @@ class UserLibrary:
                         doc_id = paper['id']
                         document = paper
                         break
+                    
         if doc_id is None:
             raise KeyError("DOI not found in library")
 
@@ -140,7 +150,7 @@ class UserLibrary:
 
 class Sync(object):
     """
-    I think this object should perform the syncing and include some 
+    This object should perform the syncing and include some 
     debugging information as well
     
     Attributes
@@ -150,6 +160,8 @@ class Sync(object):
     time_modified_check
     time_trash_retrieval
     time_update_sync
+    
+    #TODO: Update with other attributes in this class
     
     """
 
@@ -182,13 +194,14 @@ class Sync(object):
         else:
             self.update_sync()
 
+        #JAH: Why is this done here? I this only needs to be done in update sync
         # If no documents are found, self.docs will have length 0.
         if len(self.docs) != 0:
             self.raw = self.docs['json'].tolist()
 
     def __repr__(self):
-        pv = [
-            'raw', cld(self.raw), 'docs', cld(self.docs),
+        pv = ['raw', cld(self.raw), 
+            'docs', cld(self.docs),
             'time_full_retrieval', fstr(self.time_full_retrieval),
             'time_update_sync', fstr(self.time_update_sync),
             'newest_modified_time', self.newest_modified_time,
@@ -232,19 +245,24 @@ class Sync(object):
 
         start_sync_time = ctime()
 
+        #Let's work with everything as a dataframe
         self.docs = _raw_to_data_frame(self.raw)
 
+        #Determine the document that was updated most recently. We'll ask for
+        #everything that changed after that time. This avoids time sync
+        #issues with the server and the local computer since everything
+        #is done relative to the timestamps from the server.
         newest_modified_time = self.docs['last_modified'].max()
-
         self.newest_modified_time = newest_modified_time
 
+        #Remove old ids
+        #------------------------------------
         self.get_trash_ids()
-
         self.get_deleted_ids(newest_modified_time)
-
         self.remove_old_ids()
 
-        # -------------------------------------------------------
+        #Process new and updated documents
+        # ------------------------------------
         updates_and_new_entries_start_time = ctime()
         self.verbose_print('Checking for modified or new documents')
         self.get_updates_and_new_entries(newest_modified_time)
@@ -265,8 +283,10 @@ class Sync(object):
         """
 
         start_modified_time = ctime()
+        
         # TODO: Include -1 here ...
         doc_set = self.api.documents.get(modified_since=newest_modified_time, view='all')
+        
         raw_au_docs = [x.json for x in doc_set]
         self.new_and_updated_docs = doc_set.docs
         self.time_modified_check = ctime() - start_modified_time
@@ -310,8 +330,6 @@ class Sync(object):
         self.verbose_print('Checking trash')
 
         trash_set = self.api.trash.get(limit=500, view='all')
-        import pdb
-        #pdb.set_trace()
         self.trash_ids = [x.doc_id for x in trash_set]
 
         self.verbose_print('Finished checking trash, %d documents found' % len(self.trash_ids))
