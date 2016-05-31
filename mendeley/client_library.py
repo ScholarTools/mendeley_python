@@ -5,7 +5,9 @@ should in the end function similarly to the Mendeley Desktop.
 
 Features:
 ---------
-1) Initializes
+1) Initializes a representation of the documents stored in a user's library
+2) Synchronizes the local library with updates that have been made remotely
+3) Provides an interface
 
 TODO:
 -----
