@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
 """
 
-Models:
+This file contains classes that are instantiated following a request that is 
+made to the API.
+
+For Example:
+
+
+
 
 See Also
 --------
@@ -17,19 +23,27 @@ from .utils import get_list_class_display as cld
 from . import utils
 
 """
+Internal notes:
+---------------
 These objects are called with the following forms:
-1)  (self,json,m)
-2)  (self,json,m,response_params)
 
-json : json response from the request
-m : mendeley.api.API
+    1)  (self,json,m)
+
+    2)  (self,json,m,response_params)
 
 
+    json : json response from the request
+    m : mendeley.api.API
+    response_params : Information passed from the calling function that made
+    the request that is necessary to properly build the response object
+
+1)    
 class WTF(object):
     def __init__(self,json,m):
         import pdb
         pdb.set_trace()
-        
+  
+2)      
 class WTF2(object):
     def __init__(self,json,m,response_params):
         import pdb
@@ -47,20 +61,40 @@ class ResponseObject(object):
     object_fields = {}
 
     def __init__(self, json):
+        """
+        This class stores the raw JSON in case an attribute from this instance
+        is requested. The attribute is accessed via the __getattr__ method.
+
+        This design was chosen instead of one which tranfers each JSON object
+        key into an attribute. This design decision means that we don't spend
+        time populating an object where we only want a single attribute.
+        
+        Note that the request methods should also support returning the raw JSON.
+        """
         self.json = json
 
     def __getattr__(self, name):
 
-        # This check allows an optional field to be returned as None
-        # even if it isn't in the current json definition
-        #
-        # This however still keeps in place errors like if you ask for:
-        # document.yeear <= instead of year
+        """
+        By checking for the name in the list of fields, we allow returning
+        a "None" value for attributes that are not present in the JSON. By
+        forcing each class to define the fields that are valid we ensure that
+        spelling errors don't return none:
+        e.g. document.yeear <= instead of document.year
+        """
         if name in self.fields():
             value = self.json.get(name)
+            
+            #We don't call object construction methods on None values
             if value is None:
                 return None
             elif name in self.object_fields:
+                #Here we return the value after passing it to a method
+                #fh => function handle
+                #
+                #Only the value is explicitly passed in
+                #Any other information needs to be explicitly bound
+                #to the method
                 method_fh = self.object_fields[name]
                 return method_fh(value)
             else:
@@ -411,7 +445,6 @@ class Document(object):
             except IndexError:
                 print('%s not categorized' % doi)
                 unresolved_doi_prefixes += 1
-
 
         return_bundle = {'total_refs':total_refs, 'all_ref_dois':all_ref_dois, 'without_dois':without_dois}
         return_bundle['all_reference_info'] = all_reference_info
