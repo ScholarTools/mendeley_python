@@ -16,6 +16,8 @@ Important Methods
 
 
 """
+from __future__ import print_function
+
 import requests
 from requests.auth import AuthBase
 
@@ -25,9 +27,18 @@ import pytz #This seems to be a 3rd party library but is installed on
 
 import pickle
 import os
+import sys
 
 from . import utils
 from . import config
+
+
+def print_error(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+
+class AuthException(Exception):
+    pass
 
 """
 -------------------------------------------------------------------------------
@@ -241,8 +252,10 @@ class PublicCredentials(_Credentials):
         self.expires = datetime.datetime.now(pytz.utc) + datetime.timedelta(seconds=json['expires_in'])
     
     def __repr__(self):
-        pv = ['access_token',self.access_token,'token_type',self.token_type,
-              'expires',str(self.expires),'token_expired',self.token_expired]
+        pv = ['access_token',self.access_token,
+              'token_type',self.token_type,
+              'expires',str(self.expires),
+              'token_expired',self.token_expired]
         return utils.property_values_to_string(pv)
                 
     def renew_token(self):
@@ -290,6 +303,8 @@ class UserCredentials(_Credentials):
     
     Attributes
     ----------
+    from_disk : logical
+        Whether or not the class was instantiated from disk
     version : string
         The current version of the access token. Since these are saved to disk
         this value is retained in case we need to make changes.
@@ -324,6 +339,7 @@ class UserCredentials(_Credentials):
         
         user_info = self.resolve_user_info(user_name,user_info)
         self.version = 1
+        self.from_disk = False
         self.populate_session(session)
         self.user_name = user_info.user_name
         json = self.create_initial_token(user_info)
@@ -394,14 +410,39 @@ class UserCredentials(_Credentials):
         #----------------------------------
         #1) {"error":"invalid_grant","error_description":"Invalid grant"}
         #
-        # - Seems to have been fixed by deleting the pickled version of this
-        #   class that was associated with the user in /data/credentials
-              
+        # - Was fixed by deleting the pickled version of the credentials
+           
+        #http://dev.mendeley.com/reference/topics/authorization_auth_code.html
+        #
+        #Possible errors include (I think):
+        # 1) invalid_request - values were missing in request
+        # 2) unsupported_grant_type - when the grant type is not refresh_token or authorization_code
+        # 3) invalid_grant - values were invalid
+        
+
+        #TODO: rewrite based on switching on possible errors
+        #e.g. if error
+        #error_data = r.json()
+        #error_type = error_data.get('error')
+        #'invalid_grant'
+        #'invalid_request'
+        #'unsupported_grant_type'
+        # => none of these
+        #throw specific errors for each of these
         if r.status_code != requests.codes.ok:
-            print(r.text)
+            print_error("Error for user: ", self.user_name)
+            
+            if (self.from_disk):
+                print_error("Credentials loaded from:\n%s" % self.get_file_path(self.user_name))
+            
+            print_error("------------------------------------------------")
+            print_error(r.text)
+            print_error("------------------------------------")
+            #This assumes we are loading from disk ...
+            print_error("The current solution is to delete the saved credentials")
             import pdb
             pdb.set_trace()
-            raise Exception('TODO: Fix me, request failed ...')
+            raise AuthException('TODO: Fix me, request failed ...')
       
         self.init_json_attributes(r.json())      
         self.save()
@@ -437,7 +478,9 @@ class UserCredentials(_Credentials):
                        
         with open(load_path,'rb') as f:
             self = pickle.load(f)
-            
+        
+        self.from_disk = True        
+        
         self.populate_session(session)
                           
         return self    
