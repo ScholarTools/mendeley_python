@@ -206,7 +206,7 @@ class API(object):
 
         # This was newly introduced, apparently? Each dev token is only good for 90 days
         # https://development-tokens.mendeley.com/
-        dev_token = 'ODUsMTQ3MjA0NDg5OTIwNSxTLWdkT1lsS1BwN2h0ekkxeHlyTWJCUG9NR1k'
+        dev_token = utils.dev_token
         header = {'Development-Token' : dev_token}
 
         # NOTE: We make authorization go through the access token. The request

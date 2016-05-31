@@ -341,7 +341,7 @@ class Document(object):
         """
         return DocumentSet(json, m)
 
-    def addfile(self, file):
+    def add_file(self, file):
         from .api import API
 
         base_url = 'https://api.mendeley.com'
@@ -361,7 +361,7 @@ class Document(object):
 
         return API.make_post_request(API(), url, object_fh, params, headers=headers, files=file)
 
-    def addfile_from_url(self, file_url):
+    def add_file_from_url(self, file_url):
         from contextlib import closing
         import requests
         from pypub.publishers.pub_resolve import resolve_link
@@ -376,7 +376,7 @@ class Document(object):
         response = pub.extract_pdf(file_url)
         file = {'file': response.content}
 
-        return self.addfile(file)
+        return self.add_file(file)
 
     def addTag(self, tag):
         from .api import API
@@ -387,7 +387,7 @@ class Document(object):
         import reference_resolver as rr
         info = rr.resolve_doi(self.doi)
 
-        refs = info['references']
+        refs = info.references
 
         total_refs = len(refs)
         without_dois = 0
