@@ -4,6 +4,11 @@
 /.idea/
 /data/
 
+# Test files
+test_pdf.pdf
+test_file.html
+test
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
