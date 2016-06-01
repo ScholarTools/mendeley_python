@@ -54,13 +54,14 @@ m.documents.create(ae)
 '''
 
 actual_doc = temp.get_document('10.1002/biot.201400046')
-return_bundle = actual_doc.add_all_references()
+print(actual_doc)
+#return_bundle = actual_doc.add_all_references()
 
-print(return_bundle)
-print('total number of references: ' + str(return_bundle['total_refs']))
-print('refs without DOIs: ' + str(return_bundle['without_dois']))
+#print(return_bundle)
+#print('total number of references: ' + str(return_bundle['total_refs']))
+#print('refs without DOIs: ' + str(return_bundle['without_dois']))
 
-#pdb.set_trace()
+
 
 '''
 doc_data = random_entry()
@@ -90,8 +91,8 @@ added = cj.addfile(file)
 print(added)
 '''
 
-#document = temp.get_document('10.1177/1073858414541484')
-#print(document)
+document = temp.get_document('10.1177/1073858414541484')
+print(document)
 #document.addfile(file)
 
 #file = {'file': open('test.pdf', 'rb')}

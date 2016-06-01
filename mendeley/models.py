@@ -20,6 +20,11 @@ from collections import OrderedDict as ODict
 from .utils import get_truncated_display_string as td
 from .utils import get_list_class_display as cld
 
+
+
+import reference_resolver as rr
+import pypub.publishers.pub_objects as pub_objects
+
 from . import utils
 
 """
@@ -250,6 +255,9 @@ class DocumentSet(object):
 
         fcn = params['fcn']
 
+        import pdb
+        #pdb.set_trace()
+
         # TODO: Figure out how to support lazy loading
         # TODO: Support view construction
         self.docs = [fcn(x, m) for x in json]
@@ -327,14 +335,78 @@ class DeletedDocument(ResponseObject):
 
 class File(ResponseObject):
     """
+    Manages return info after linking a file to a doc.
 
     """
     def __init__(self, json):
+        """
+        Parameters
+        ----------
+        json : dict
+
+        """
         super().__init__(self, json)
+        self.file_location = 'https://api.mendeley.com/files/' + self.file_id
+
+    def __repr__(self):
+        return u'' + \
+            'title: %s\n' % self.__getattr__('title') + \
+            'file_id: %s\n' % self.__getattr__('file_id') + \
+            'file_location: %s\n' % self.file_location + \
+            'doc_id %s\n' % self.__getattr__('doc_id')
 
 
-class Document(object):
+class Document(ResponseObject):
     """
+
+    Possible methods to add:
+    ------------------------
+    update
+    delete
+    move_to_trash
+    attach_file
+    add_note
+
+
+
+    Attributes
+    ----------
+    source : string
+        Publication outlet, i.e. where the document was published.
+    year
+    identifiers : [DocumentIdentifiers]
+    id : string
+        Identifier (UUID) of the document. This identifier is set by the server
+        on create and it cannot be modified.
+    type : string
+        The type of the document. Supported types: journal, book, generic,
+        book_section, conference_proceedings, working_paper, report, web_page,
+        thesis, magazine_article, statute, patent, newspaper_article,
+        computer_program, hearing, television_broadcast, encyclopedia_article,
+        case, film, bill.
+    created
+    profile_id : string
+        Profile id (UUID) of the Mendeley user that added the document to
+        the system.
+    last_modified
+    title : string
+        Title of the document.
+    authors : [Person]
+    keywords : list
+        List of author-supplied keywords for the document.
+    abstract : string
+
+
+    #TODO: Incorporate below into above ...
+    group_id : string (Not always present)
+        Group id (UUID) that the document belongs to.
+    created : string
+    last_modified : string
+
+
+    authors :
+
+
     Manages return info after creating a single document.
 
     Includes a call to a method in API that adds a file
@@ -343,6 +415,10 @@ class Document(object):
 
     """
 
+    object_fields = {
+        'authors': Person.initialize_array,
+        'identifiers': DocumentIdentifiers}
+
     def __init__(self, json, m):
         """
         Parameters
@@ -350,19 +426,40 @@ class Document(object):
         json : dict
         m : mendeley.api._APIMethods
 
-
         """
+        super(Document, self).__init__(json)
+        self.doc_id = self.__getattr__('id')
         self.api = m
-        self.json = json
-        self.doc_id = json['id']
-        self.title = json['title']
-        self.tags = None
-        self.doi = json['identifiers']['doi']
-        self.location = 'https://api.mendeley.com/documents/' + self.doc_id
+        if self.doc_id is None:
+            import pdb
+            pdb.set_trace()
+        self.doc_location = 'https://api.mendeley.com/documents/' + self.doc_id
         self.default_return_type = 'object'
 
-        if 'tags' in json.keys():
-            self.tags = json['tags']
+    def _null(self):
+        """
+        TODO: Ask on SO about this, is there an alternative approach?
+        It does expose tab completion in Spyder ...
+        """
+        self.source = None  #
+        self.year = None  #
+        self.identifiers = None
+        self.id = None  #
+        self.type = None  #
+        self.created = None  #
+        self.profile_id = None  #
+        self.last_modified = None  #
+        self.title = None  #
+        self.authors = None  #
+        self.keywords = None
+        self.abstract = None  #
+        self.tags = None
+
+    @classmethod
+    def fields(cls):
+        return ['source', 'year', 'identifiers', 'id', 'type', 'created',
+                'profile_id', 'last_modified', 'title', 'authors', 'keywords',
+                'abstract', 'tags', 'doi']
 
     @classmethod
     def create(cls, json, m, params):
@@ -375,72 +472,49 @@ class Document(object):
         """
         return DocumentSet(json, m)
 
-    def addfile(self, file):
+    def add_file(self, file_content=None, download_file_url=None):
+        """
 
-        #JAH: change to add_file
-        #JAH: move most of this code into the API module and call that method
-        #   from this method
-        #   
-        #   self.api.documents.add_file() <= TODO: decide on inputs to that function
-        #JAH: What is file? <= be more specific with naming things => file_path? pdf_file_path?
-        
-        from .api import API
+        Parameters
+        ----------
+        file_content : dict
+            Of the form {'file': ####}
+            where #### is the raw content of the file, which was either passed
+            as a BufferedReader, or as the content of a requests response object.
 
-        base_url = 'https://api.mendeley.com'
-        url = base_url + '/files'
-        object_fh = LinkedFile
+        download_file_url : str
+            URL to the download page
 
-        # Get rid of spaces in filename
-        filename = self.title.replace(' ', '_') + '.pdf'
+        Returns
+        -------
 
-        params = None
+        """
+        if file_content is not None:
+            params = dict()
+            params['title'] = self.title
+            params['id'] = self.doc_id
 
-        # Set headers
-        headers = dict()
-        headers['Content-Type'] = 'application/pdf'
-        headers['Content-Disposition'] = 'attachment; filename=%s' % filename
-        headers['Link'] = '<' + self.location + '>; rel="document"'
+            return self.api.files.link_file(file_content, params)
+        elif download_file_url is not None:
+            # Figure out publisher from URL and instantiate publisher object
+            pub_dict = rr.resolve_link(download_file_url)
+            pub_obj = pub_dict['object']
+            pub = getattr(pub_objects, pub_obj)(**pub_dict)
 
-        return API.make_post_request(API(), url, object_fh, params, headers=headers, files=file)
+            # Format response content
+            response_content = pub.get_pdf_content(download_file_url)
+            file = {'file': response_content}
 
-    def addfile_from_url(self, file_url):
+            # Call itself again with the file content as input
+            return self.add_file(file_content=file)
+        else:
+            raise ValueError("Please enter file content using file_content= or a file URL using download_file_url=")
 
-        #JAH: file_url is not specific. Why does a file_url need to be resolved? 
-        #Haven't you specified the url to the file?
-        #
-        #JAH: Part of me thinks that you could merge this with the above function
-        #and have different switches depending upon which optional input is not 
-        #None - note that you don't need to worry about the user specifying
-        #multiple inputs, just check if one value is set, if it isn't, go onto
-        #the next value, until you find one that is specified
-        #
-        #   file_path, doi, document_url (vs file, which is what I think you
-        #   are using file_url to refer to here), pmid, file_url 
-        #   (direct link to the file)        
-        
-        from contextlib import closing
-        import requests
-        from pypub.publishers.pub_resolve import resolve_link
-        import pypub.publishers.pub_objects as pub_objects
-
-        # Figure out publisher from URL and instantiate publisher object
-        pub_dict = resolve_link(file_url)
-        pub_obj = pub_dict['object']
-        pub = getattr(pub_objects, pub_obj)(**pub_dict)
-
-        # Format response content
-        response = pub.extract_pdf(file_url)
-        file = {'file': response.content}
-
-        return self.add_file(file)
-
-    def addTag(self, tag):
-        from .api import API
+    def add_tag(self, tag):
         pass
 
     def add_all_references(self):
 
-        import reference_resolver as rr
         info = rr.resolve_doi(self.doi)
 
         refs = info.references
@@ -472,164 +546,29 @@ class Document(object):
         return_bundle['all_reference_info'] = all_reference_info
         return return_bundle
 
-    def __repr__(self):
-        #pv = [self.json[key] for key in self.json.keys()]
-        #return utils.property_values_to_string(pv)
-        return u'' + \
-            'Title: %s\n' % self.title + \
-            'Tags: %s\n' % self.tags + \
-            'DOI: %s\n' % self.doi + \
-            'Doc ID %s\n' % self.doc_id + \
-            'Doc URL %s\n' % self.location
-
-
-class LinkedFile(object):
-    """
-    Manages return info after linking a file to a doc.
-
-    """
-    
-    #JAH: How is this different than the File class?
-
-    def __init__(self, json, m):
-        """
-        Parameters
-        ----------
-        json : dict
-        m : mendeley.models.Document object
-
-        """
-        
-        #JAH: Why not use lazy loading with the exception
-        #of possibly location? <= inherit from ResponseObject
-        self.json = json
-        self.title = json['file_name']
-        self.file_id = json['id']
-        self.doc_id = json['document_id']
-        self.location = 'https://api.mendeley.com/files/' + self.file_id
-
-    def __repr__(self):
-        
-        #JAH: Please keep the names the same as the attributes.
-        #e.g. => title, not Title
-        #e.g. => file_id, not File ID or file ID (i.e. keep underscores too)
-        #
-        #for something like location vs File URL, should the attribute
-        #be file_url instead of location since you are changing it?
-        
-        return u'' + \
-            'Title: %s\n' % self.title + \
-            'File ID %s\n' % self.file_id + \
-            'File URL %s\n' % self.location + \
-            'Doc ID %s\n' % self.doc_id
-            
-
-#JAH: Why was this code removed? It seems like the new Document adds some method
-#features but removes a lot of lazy loading and tab completion? We can talk
-#about this face to face if necessary.
-
-'''
-class Document(ResponseObject):
-    """
-
-    Possible methods to add:
-    ------------------------
-    update
-    delete
-    move_to_trash
-    attach_file
-    add_note
-    
-    
-    
-    Attributes
-    ----------
-    source : string
-        Publication outlet, i.e. where the document was published.
-    year
-    identifiers : [DocumentIdentifiers]
-    id : string
-        Identifier (UUID) of the document. This identifier is set by the server 
-        on create and it cannot be modified.
-    type : string
-        The type of the document. Supported types: journal, book, generic, 
-        book_section, conference_proceedings, working_paper, report, web_page, 
-        thesis, magazine_article, statute, patent, newspaper_article, 
-        computer_program, hearing, television_broadcast, encyclopedia_article, 
-        case, film, bill.
-    created
-    profile_id : string
-        Profile id (UUID) of the Mendeley user that added the document to 
-        the system.
-    last_modified
-    title : string
-        Title of the document.
-    authors : [Person]
-    keywords : list
-        List of author-supplied keywords for the document.
-    abstract : string
-    
-
-    #TODO: Incorporate below into above ...
-    group_id : string (Not always present)
-        Group id (UUID) that the document belongs to.
-    created : string
-    last_modified : string
-    
-    
-    authors :     
-    """
-
-    object_fields = {
-        'authors': Person.initialize_array,
-        'identifiers': DocumentIdentifiers}
-
-    def __init__(self, json, m):
-        super(Document, self).__init__(json)
-
-    def _null(self):
-        """
-        TODO: Ask on SO about this, is there an alternative approach?
-        It does expose tab completion in Spyder ...
-        """
-        self.source = None  #
-        self.year = None  #
-        self.identifiers = None
-        self.id = None  #
-        self.type = None  #
-        self.created = None  #
-        self.profile_id = None  #
-        self.last_modified = None  #
-        self.title = None  #
-        self.authors = None  #
-        self.keywords = None
-        self.abstract = None  #
-
-    @classmethod
-    def fields(cls):
-        return ['source', 'year', 'identifiers', 'id', 'type', 'created',
-                'profile_id', 'last_modified', 'title', 'authors', 'keywords',
-                'abstract']
-
     def __repr__(self, pv_only=False):
         # TODO: Set this up like it looks in Mendeley
-        pv = ['profile_id', self.profile_id,
-              'created', self.created,
-              'last_modified', self.last_modified,
-              'id', self.id,
-              'type', self.type,
-              'title', td(self.title),
-              'authors', cld(self.authors),
-              'source', self.source,
-              'year', self.year,
-              'abstract', td(self.abstract),
-              'keywords', td("%s" % self.keywords),
-              'identifiers', cld(self.identifiers)]
+        pv = ['profile_id: ', self.profile_id,
+              'created: ', self.created,
+              'last_modified: ', self.last_modified,
+              'id: ', self.id,
+              'type: ', self.type,
+              'title: ', td(self.title),
+              'tags: ', self.tags,
+              'authors: ', cld(self.authors),
+              'source: ', self.source,
+              'year: ', self.year,
+              'doi: ', self.doi,
+              'doc_id: ', self.doc_id,
+              'doc_location: ', self.doc_location,
+              'abstract: ', td(self.abstract),
+              'keywords: ', td("%s" % self.keywords),
+              'identifiers: ', cld(self.identifiers)]
         if pv_only:
             return pv
         else:
             return utils.property_values_to_string(pv)
-'''
+
 
 class Folder(object):
     """
@@ -801,8 +740,6 @@ class CatalogDocument(object):
 
 class BibCatalogDocument(CatalogDocument):
     def __init__(self, json, m):
-        import pdb
-        pdb.set_trace()
         super(BibCatalogDocument, self).__init__(json, m)
         self.issue = json['issue']
         self.pages = json['pages']

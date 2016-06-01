@@ -364,6 +364,8 @@ class Files(object):
         """
         # https://api.mendeley.com/apidocs#!/annotations/getFiles
 
+        THIS DOESN'T REALLY DO ANYTHING RIGHT NOW.
+
         Parameters
         ----------
         id :
@@ -386,7 +388,7 @@ class Files(object):
         # Not sure what this should be doing
         response_params = {'document_id': doc_id}
 
-        # Didn't want to deal with make_get_request so I did it myself.
+        # Didn't want to deal with make_get_request
         response = self.parent.s.get(url, params=kwargs, auth=self.parent.access_token)
         json = response.json()[0]
 
@@ -400,7 +402,7 @@ class Files(object):
 
         pass
 
-    def linkfile(self, file, params, file_url=None):
+    def link_file(self, file, params, file_url=None):
         """
 
         Parameters
@@ -409,8 +411,12 @@ class Files(object):
             Of form {'file' : Buffered Reader for file}
             The buffered reader was made by opening the pdf using open().
         params : dict
-            Includes paper title, ID of the document to which
-            the file will be attached, and return type.
+            Includes the following:
+            'title' = paper title
+            'id' = ID of the document to which
+            the file will be attached
+            (optional) '_return_type': return type of API.make_post_request
+            (json, object, raw, or response)
 
         Returns
         -------
@@ -436,7 +442,7 @@ class Files(object):
 
         API.make_post_request(API(), url, object_fh, params, headers=headers, files=file)
 
-    def linkfile_from_url(self, file, params, file_url):
+    def link_file_from_url(self, file, params, file_url):
         """
 
         Parameters
