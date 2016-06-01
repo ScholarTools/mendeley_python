@@ -79,10 +79,6 @@ class UserLibrary:
         sync_result = Sync(self.api, self.raw, verbose=self.verbose)
         self.sync_result = sync_result
         self.raw = sync_result.raw
-        
-        #JAH: This could be a relatively expensive operation. Do we really
-        #need it?
-        self.doc_objects = [models.Document(json, API) for json in self.raw]
         self.docs = sync_result.docs
         self._save()
 
@@ -107,10 +103,14 @@ class UserLibrary:
 
         """
         
-        #JAH: rewrite with Pandas
-        # Search through library for a document with target DOI.
-        doc_id = None
-        document = None
+        # Search through pandas dataframe for a document with target DOI.
+        # Entries are indexed using the document ID, so when the correct
+        # DOI is found, the document ID is the index of that entry.
+        document = self.docs.loc[self.docs['doi'] == doi]
+        doc_id = document.index[0]
+        document_json = document['json'][0]
+
+        '''
         for paper in self.raw:
             if 'identifiers' in paper.keys():
                 if 'doi' in paper['identifiers'].keys():
@@ -118,14 +118,15 @@ class UserLibrary:
                         doc_id = paper['id']
                         document = paper
                         break
-                    
+        '''
+
         if doc_id is None:
             raise KeyError("DOI not found in library")
 
         if return_json:
-            return document
+            return document_json
         else:
-            doc_obj = models.Document(document, API)
+            doc_obj = models.Document(document_json, API())
             return doc_obj
 
     def _load(self):
@@ -194,11 +195,6 @@ class Sync(object):
         else:
             self.update_sync()
 
-        #JAH: Why is this done here? I this only needs to be done in update sync
-        # If no documents are found, self.docs will have length 0.
-        if len(self.docs) != 0:
-            self.raw = self.docs['json'].tolist()
-
     def __repr__(self):
         pv = ['raw', cld(self.raw), 
             'docs', cld(self.docs),
@@ -225,8 +221,6 @@ class Sync(object):
         # within the caller
         doc_set = self.api.documents.get(limit=500, view='all')
 
-        #pdb.set_trace()
-
         self.raw = [x.json for x in doc_set]
         self.docs = _raw_to_data_frame(self.raw)
 
@@ -247,6 +241,8 @@ class Sync(object):
 
         #Let's work with everything as a dataframe
         self.docs = _raw_to_data_frame(self.raw)
+
+        self.raw = self.docs['json'].tolist()
 
         #Determine the document that was updated most recently. We'll ask for
         #everything that changed after that time. This avoids time sync
