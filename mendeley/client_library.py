@@ -108,7 +108,7 @@ class UserLibrary:
         # DOI is found, the document ID is the index of that entry.
         document = self.docs.loc[self.docs['doi'] == doi]
         doc_id = document.index[0]
-        document_json = document['json'][
+        document_json = document['json'][0]
 
         if doc_id is None:
             raise KeyError("DOI not found in library")

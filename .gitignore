@@ -67,3 +67,6 @@ docs/_build/
 mendeley_secret.txt
 mendeley_testing_secret.txt
 
+# Merging leftovers
+*.orig
+
