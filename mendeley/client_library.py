@@ -107,17 +107,31 @@ class UserLibrary:
         # Entries are indexed using the document ID, so when the correct
         # DOI is found, the document ID is the index of that entry.
         document = self.docs.loc[self.docs['doi'] == doi]
+
+        if len(document) == 0:
+            raise KeyError("DOI not found in library")
+
         doc_id = document.index[0]
         document_json = document['json'][0]
-
-        if doc_id is None:
-            raise KeyError("DOI not found in library")
 
         if return_json:
             return document_json
         else:
             doc_obj = models.Document(document_json, API())
             return doc_obj
+
+    def check_for_document(self, doi):
+        """
+        Attempts to call self.get_document. If it runs without
+        error, it means the DOI exists in the library, so method returns
+        True. If get_document throws a KeyError, it means the DOI wasn't
+        found, so method returns False.
+        """
+        try:
+            self.get_document(doi)
+            return True
+        except KeyError:
+            return False
 
     def _load(self):
         # TODO: Check that the file is not empty ...
