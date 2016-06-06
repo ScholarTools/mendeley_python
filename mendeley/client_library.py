@@ -25,6 +25,7 @@ from . import utils
 from .api import API
 from . import models
 import reference_resolver as rr
+from mendeley_errors import *
 
 
 class UserLibrary:
@@ -104,7 +105,7 @@ class UserLibrary:
         document = self.docs.loc[self.docs['doi'] == doi]
 
         if len(document) == 0:
-            raise KeyError("DOI not found in library")
+            raise DOINotFoundError("DOI not found in library")
 
         doc_id = document.index[0]
         document_json = document['json'][0]
@@ -119,13 +120,12 @@ class UserLibrary:
         """
         Attempts to call self.get_document. If it runs without
         error, it means the DOI exists in the library, so method returns
-        True. If get_document throws a KeyError, it means the DOI wasn't
-        found, so method returns False.
+        True. If get_document throws a DOINotFoundError, method returns False.
         """
         try:
             self.get_document(doi)
             return True
-        except KeyError:
+        except DOINotFoundError:
             return False
 
     def add_to_library(self, doi):
