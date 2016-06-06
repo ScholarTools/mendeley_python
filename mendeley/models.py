@@ -338,22 +338,31 @@ class File(ResponseObject):
     Manages return info after linking a file to a doc.
 
     """
-    def __init__(self, json):
+    def __init__(self, json, m):
         """
         Parameters
         ----------
         json : dict
 
         """
-        super().__init__(self, json)
+        super(File, self).__init__(json)
+
+        print('THIS IS THE FILE STUFF:')
+        print(json)
+
+        self.file_id = self.__getattr__('id')
         self.file_location = 'https://api.mendeley.com/files/' + self.file_id
+
+    @classmethod
+    def fields(cls):
+        return ['id', 'document_id', 'created', 'file_name', 'authors', 'doi']
 
     def __repr__(self):
         return u'' + \
-            'title: %s\n' % self.__getattr__('title') + \
-            'file_id: %s\n' % self.__getattr__('file_id') + \
+            'title: %s\n' % self.__getattr__('file_name') + \
+            'id: %s\n' % self.file_id + \
             'file_location: %s\n' % self.file_location + \
-            'doc_id %s\n' % self.__getattr__('doc_id')
+            'document_id %s\n' % self.__getattr__('document_id')
 
 
 class Document(ResponseObject):
@@ -495,6 +504,7 @@ class Document(ResponseObject):
             params['id'] = self.doc_id
 
             return self.api.files.link_file(file_content, params)
+
         elif download_file_url is not None:
             # Figure out publisher from URL and instantiate publisher object
             pub_dict = rr.resolve_link(download_file_url)

@@ -430,7 +430,7 @@ class Files(object):
         # Extract info from params
         title = params['title']
         doc_id = params['id']
-        object_fh = models.LinkedFile
+        object_fh = models.File
 
         # Get rid of spaces in filename
         filename = title.replace(' ', '_') + '.pdf'
