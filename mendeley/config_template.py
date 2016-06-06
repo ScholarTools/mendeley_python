@@ -22,22 +22,35 @@ class Oauth2Credentials(object):
     redirect_url = 'https://localhost'
 
 
+#-----------------------------------------------------------------
 # Optional but recommended for personal methods
+#
+# If a user is not specified for the user credentials, 
+# the default user (below) is used.
 class DefaultUser(object):
     user_name = ''  # e.g. bob@smith.com
     password = ''  # e.g. 'password123'
 
 
-# This is needed for other users
+# This is needed for the "other_users"
 class User(object):
     def __init__(self, user_name, password):
         self.user_name = user_name
         self.password = password
 
+#-----------------------------------------------------------------
+# Keys in the "other_user" dictionary are aliases for the user credentials.
+#
+# For example, you can request the 'testing' user and it will use
+# the User credentials specified in the testing key.
+#
+#   Example: (Uncomment and modify to enable)
+#   other_users = {'testing': User('jim@smith.com', 'my_testing_pass')}
 
-# The key is an alias
-other_users = {'testing': User('jim@smith.com', 'my_testing_pass')}
 
-# Fill this in to save the data in a location other than the "data" folder
-# in the root of this repository.
-default_save_path = 'C:/box_sync/mendeley_data'
+#-----------------------------------------------------------------
+# Fill this in to save the data in a location other than in:
+#   <repo root>/data/
+#
+#   Example: (Uncomment and modify to enable)
+#   default_save_path = 'C:/box_sync/mendeley_data'

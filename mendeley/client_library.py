@@ -7,11 +7,6 @@ Features:
 ---------
 1) Initializes a representation of the documents stored in a user's library
 2) Synchronizes the local library with updates that have been made remotely
-3) Provides an interface
-
-TODO:
------
-1) Need to implement getting new papers and deleting old ones
 
 """
 
@@ -65,8 +60,7 @@ class UserLibrary:
         pv = ['api', cld(self.api),
               'user_name', self.user_name,
               'docs', cld(self.docs),
-              'raw', cld(self.raw),
-              'doc_objects', cld(self.doc_objects)]
+              'raw', cld(self.raw)]
         return utils.property_values_to_string(pv)
 
     def sync(self):
