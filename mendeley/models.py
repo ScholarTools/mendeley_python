@@ -15,15 +15,31 @@ mendeley.api => contains the code that makes requests for these models
 
 """
 
+class OptionalLibrary(Exception):
+    pass
+
 from collections import OrderedDict as ODict
 
 from .utils import get_truncated_display_string as td
 from .utils import get_list_class_display as cld
 
+#Optional import handling
+#http://stackoverflow.com/a/563060/764365
+#
+#lamba to raise an error
+#http://stackoverflow.com/questions/8294618/define-a-lambda-expression-that-raises-an-exception
+try:
+    import reference_resolver as rr
+except ImportError:
+    #TODO: Provide link to repo
+    #Eventually pip the repo
+    rr = lambda: (_ for _ in ()).throw(OptionalLibrary('The method called requires the library "reference_resolver" from the Scholar Tools Github repo'))
 
+try:
+    import pypub.publishers.pub_objects as pub_objects
+except ImportError:
+    pub_objects = lambda: (_ for _ in ()).throw(OptionalLibrary('The method called requires the library "pypub" from the Scholar Tools Github repo'))
 
-import reference_resolver as rr
-import pypub.publishers.pub_objects as pub_objects
 
 from . import utils
 
