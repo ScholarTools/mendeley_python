@@ -29,6 +29,7 @@ from .utils import get_list_class_display as cld
 from . import utils
 from .api import API
 from . import models
+import reference_resolver as rr
 
 
 class UserLibrary:
@@ -132,6 +133,62 @@ class UserLibrary:
             return True
         except KeyError:
             return False
+
+    def add_to_library(self, doi):
+        # Get paper information from DOI
+        paper_info = rr.resolve_doi(doi)
+
+        # Get appropriate scraper object
+        scraper_obj = paper_info.scraper_obj
+        mod = __import__('pypub.publishers.pub_objects', fromlist=[scraper_obj])
+        scraper = getattr(mod, scraper_obj)
+
+        print(scraper)
+
+        print(paper_info.entry)
+
+        formatted_entry = self._format_doc_entry(paper_info.entry)
+
+        api = API()
+        new_document = api.documents.create(formatted_entry)
+
+        print(paper_info.pdf_link)
+        pdf_content = scraper.get_pdf_content(scraper, paper_info.pdf_link)
+
+        new_document.add_file({'file' : pdf_content})
+
+        return True
+
+    def _format_doc_entry(self, entry):
+        # Format author names
+        authors = entry.get('authors')
+        formatted_author_names = None
+        if authors is not None:
+            author_names = [x.get('name') for x in authors]
+            formatted_author_names = []
+            for name in author_names:
+                name_dict = dict()
+                name = name.strip()
+                parts = name.split(' ')
+                # Check if an abbreviation was used
+                if '.' in name:
+                    for part in parts:
+                        if '.' in part:
+                            name_dict['first_name'] = part
+                        else:
+                            name_dict['last_name'] = part
+                # Otherwise assume format is "firstname lastname"
+                else:
+                    name_dict['first_name'] = parts[0]
+                    name_dict['last_name'] = parts[1]
+                formatted_author_names.append(name_dict)
+
+        entry['authors'] = formatted_author_names
+        entry['publisher'] = entry['publication']
+        entry['type'] = 'journal'
+        entry['identifiers'] = {'doi' : entry['doi']}
+
+        return entry
 
     def _load(self):
         # TODO: Check that the file is not empty ...

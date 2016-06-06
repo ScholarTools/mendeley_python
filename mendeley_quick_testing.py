@@ -71,6 +71,28 @@ cj = m.documents.create(doc_data)
 print(cj)
 '''
 
+nature_pdf_url = 'http://www.nature.com/nrg/journal/v15/n5/pdf/nrg3686.pdf'
+from pypub.publishers.pub_objects import Nature
+#pdf_content = Nature.get_pdf_content(nature_pdf_url)
+import requests
+#resp = requests.get(nature_pdf_url)
+pdf_content = Nature.get_pdf_content(Nature, nature_pdf_url)
+print(Nature)
+#adding_file = {'file' : pdf_content}
+#cj.add_file(adding_file)
+
+with open('nature_test_pdf.pdf', 'wb') as file:
+    file.write(pdf_content)
+'''
+if 'pdf' in resp.headers['content-type']:
+    with open('nature_test_pdf.pdf', 'wb') as file:
+        file.write(pdf_content)
+else:
+    with open('nature_test_html.html', 'wb') as file:
+        file.write(pdf_content)
+'''
+
+
 #added = cj.addfile_from_url(file_url)
 #print(added)
 
@@ -91,8 +113,8 @@ added = cj.addfile(file)
 print(added)
 '''
 
-document = temp.get_document('10.1177/1073858414541484')
-print(document)
+#document = temp.get_document('10.1177/1073858414541484')
+#print(document)
 #document.addfile(file)
 
 #file = {'file': open('test.pdf', 'rb')}
