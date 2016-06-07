@@ -361,9 +361,6 @@ class File(ResponseObject):
         """
         super(File, self).__init__(json)
 
-        print('THIS IS THE FILE STUFF:')
-        print(json)
-
         self.file_id = self.__getattr__('id')
         self.file_location = 'https://api.mendeley.com/files/' + self.file_id
 
@@ -454,8 +451,7 @@ class Document(ResponseObject):
         self.doc_id = self.__getattr__('id')
         self.api = m
         if self.doc_id is None:
-            import pdb
-            pdb.set_trace()
+            raise KeyError('No doc_id found in models/Document/__init__')
         self.doc_location = 'https://api.mendeley.com/documents/' + self.doc_id
         self.default_return_type = 'object'
 
@@ -477,12 +473,14 @@ class Document(ResponseObject):
         self.keywords = None
         self.abstract = None  #
         self.tags = None
+        self.notes = None
+        self.doi = self.__getattr__('doi')
 
     @classmethod
     def fields(cls):
         return ['source', 'year', 'identifiers', 'id', 'type', 'created',
                 'profile_id', 'last_modified', 'title', 'authors', 'keywords',
-                'abstract', 'tags', 'doi']
+                'abstract', 'tags', 'doi', 'notes']
 
     @classmethod
     def create(cls, json, m, params):
@@ -587,7 +585,8 @@ class Document(ResponseObject):
               'doc_location: ', self.doc_location,
               'abstract: ', td(self.abstract),
               'keywords: ', td("%s" % self.keywords),
-              'identifiers: ', cld(self.identifiers)]
+              'identifiers: ', cld(self.identifiers),
+              'notes: ', self.notes]
         if pv_only:
             return pv
         else:

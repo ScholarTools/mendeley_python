@@ -54,7 +54,10 @@ m.documents.create(ae)
 '''
 
 actual_doc = temp.get_document('10.1002/biot.201400046')
-print(actual_doc)
+doc = temp.get_document('10.1038/nrg3686')
+print(doc)
+import pdb
+pdb.set_trace()
 #return_bundle = actual_doc.add_all_references()
 
 #print(return_bundle)
@@ -74,15 +77,9 @@ print(cj)
 nature_pdf_url = 'http://www.nature.com/nrg/journal/v15/n5/pdf/nrg3686.pdf'
 from pypub.publishers.pub_objects import Nature
 #pdf_content = Nature.get_pdf_content(nature_pdf_url)
-import requests
-#resp = requests.get(nature_pdf_url)
-pdf_content = Nature.get_pdf_content(Nature, nature_pdf_url)
-print(Nature)
 #adding_file = {'file' : pdf_content}
 #cj.add_file(adding_file)
 
-with open('nature_test_pdf.pdf', 'wb') as file:
-    file.write(pdf_content)
 '''
 if 'pdf' in resp.headers['content-type']:
     with open('nature_test_pdf.pdf', 'wb') as file:

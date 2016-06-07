@@ -227,6 +227,29 @@ class API(object):
 
         return self.handle_return(r, return_type, response_params, object_fh)
 
+    def make_patch_request(self, url, object_fh, params, response_params=None, headers=None, files=None):
+        #
+        # http://docs.python-requests.org/en/latest/user/advanced/#streaming-uploads
+
+        if params is not None:
+            return_type = params.pop('_return_type', self.default_return_type)
+        else:
+            return_type = self.default_return_type
+
+        if files is None:
+            params = json.dumps(params)
+
+        r = self.s.patch(url, data=params, auth=self.access_token, headers=headers, files=files)
+
+        if not r.ok:
+            # if r.status_code != good_status:
+            print(r.text)
+            print('')
+            # TODO: This should be improved
+            raise Exception('Call failed with status: %d' % (r.status_code))
+
+        return self.handle_return(r, return_type, response_params, object_fh)
+
     def handle_return(self, req, return_type, response_params, object_fh):
         if return_type is 'object':
             if response_params is None:
@@ -758,14 +781,28 @@ class Documents(object):
         """
         pass
 
-    def update(self):
+    def update(self, doc_id, new_data):
         """
         https://api.mendeley.com/apidocs#!/documents/updateDocument
         """
-        pass
+        url = BASE_URL + '/documents/' + doc_id
 
-    def move_to_trash(self):
-        pass
+        headers = dict()
+        headers['Content-Type'] = 'application/vnd.mendeley-document.1+json'
+
+        return self.parent.make_patch_request(url, models.Document, new_data, headers=headers)
+
+    def move_to_trash(self, doc_id):
+
+        url = BASE_URL + '/documents/' + doc_id + '/trash'
+
+        headers = dict()
+        headers['Content-Type'] = 'application/vnd.mendeley-document.1+json'
+
+        resp =  self.parent.s.post(url, headers=headers, auth = self.parent.access_token)
+        print(resp)
+        print(resp.status_code)
+        return
 
 
 class MetaData(object):

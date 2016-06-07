@@ -109,6 +109,7 @@ class UserLibrary:
 
         doc_id = document.index[0]
         document_json = document['json'][0]
+        document_json['doi'] = doi
 
         if return_json:
             return document_json
@@ -146,7 +147,6 @@ class UserLibrary:
         api = API()
         new_document = api.documents.create(formatted_entry)
 
-        print(paper_info.pdf_link)
         pdf_content = scraper.get_pdf_content(scraper, paper_info.pdf_link)
 
         new_document.add_file({'file' : pdf_content})
