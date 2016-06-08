@@ -54,10 +54,11 @@ m.documents.create(ae)
 '''
 
 actual_doc = temp.get_document('10.1002/biot.201400046')
-doc = temp.get_document('10.1038/nrg3686')
+doc = temp.get_document('10.1111/j.1464-4096.2004.04875.x')
 print(doc)
 import pdb
-pdb.set_trace()
+#pdb.set_trace()
+
 #return_bundle = actual_doc.add_all_references()
 
 #print(return_bundle)
@@ -66,10 +67,11 @@ pdb.set_trace()
 
 
 
-'''
-doc_data = random_entry()
-print(doc_data['title'])
 
+doc_data = random_entry()
+print(doc_data)
+
+'''
 cj = m.documents.create(doc_data)
 print(cj)
 '''

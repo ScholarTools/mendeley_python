@@ -160,18 +160,22 @@ class UserLibrary:
         if authors is not None:
             author_names = [x.get('name') for x in authors]
             formatted_author_names = []
+
+            # Parse author names
             for name in author_names:
                 name_dict = dict()
                 name = name.strip()
                 parts = name.split(' ')
-                # Check if an abbreviation was used
-                if '.' in name:
-                    for part in parts:
-                        if '.' in part:
-                            name_dict['first_name'] = part
-                        else:
-                            name_dict['last_name'] = part
-                # Otherwise assume format is "firstname lastname"
+
+                # If format is "firstname middleinitial. lastname"
+                if '.' in name and len(parts) == 3:
+                    name_dict['first_name'] = parts[0]
+                    name_dict['last_name'] = parts[2]
+                # If format is "lastname, firstname"
+                elif ',' in name:
+                    name_dict['first_name'] = parts[1]
+                    name_dict['last_name'] = parts[0]
+                # Otherwise assume format is "firstname lastname" or "firstinitial. lastname"
                 else:
                     name_dict['first_name'] = parts[0]
                     name_dict['last_name'] = parts[1]
@@ -237,8 +241,6 @@ class Sync(object):
 
         self.raw = raw
 
-        #pdb.set_trace()
-
         # Populated_values
         # -----------------
         self.deleted_ids = None
@@ -297,7 +299,7 @@ class Sync(object):
         #Let's work with everything as a dataframe
         self.docs = _raw_to_data_frame(self.raw)
 
-        self.raw = self.docs['json'].tolist()
+        #self.raw = self.docs['json'].tolist()
 
         #Determine the document that was updated most recently. We'll ask for
         #everything that changed after that time. This avoids time sync
@@ -320,7 +322,12 @@ class Sync(object):
         self.time_modified_processing = ctime() - updates_and_new_entries_start_time
         self.verbose_print('Done updating modified and new documents')
 
+        self.raw = self.docs['json'].tolist()
+
         self.time_update_sync = ctime() - start_sync_time
+
+        import pdb
+        #pdb.set_trace()
 
         self.verbose_print('Done running "UPDATE SYNC" in %s seconds' % fstr(self.time_update_sync))
 
@@ -361,9 +368,9 @@ class Sync(object):
             in_old_mask = updated_rows_df.index.isin(self.docs.index)
             if not in_old_mask.all():
                 print('Logic error, updated entries are not in the original')
-                import pdb
-                pdb.set_trace()
-                # raise Exception('Logic error, updated entries are not in the original')
+                #import pdb
+                #pdb.set_trace()
+                raise Exception('Logic error, updated entries are not in the original')
 
             updated_indices = updated_rows_df.index
             self.docs.drop(updated_indices, inplace=True)
