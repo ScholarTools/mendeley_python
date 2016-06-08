@@ -8,3 +8,6 @@ class OptionalLibraryError(Exception):
 
 class DOINotFoundError(KeyError):
     pass
+
+class CallFailedException(Exception):
+    pass

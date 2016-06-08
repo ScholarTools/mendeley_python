@@ -60,6 +60,7 @@ import pdb
 import json
 from . import models
 from . import utils
+from mendeley_errors import *
 
 
 PY2 = int(sys.version[0]) == 2
@@ -162,7 +163,7 @@ class API(object):
             print(r.text)
             print('')
             # TODO: This should be improved
-            raise Exception('Call failed with status: %d' % (r.status_code))
+            raise CallFailedException('Call failed with status: %d' % (r.status_code))
 
         return self.handle_return(r, return_type, response_params, object_fh)
 
@@ -800,8 +801,6 @@ class Documents(object):
         headers['Content-Type'] = 'application/vnd.mendeley-document.1+json'
 
         resp =  self.parent.s.post(url, headers=headers, auth = self.parent.access_token)
-        print(resp)
-        print(resp.status_code)
         return
 
 
