@@ -167,6 +167,9 @@ class UserLibrary:
                 name = name.strip()
                 parts = name.split(' ')
 
+                import pdb
+                #pdb.set_trace()
+
                 # If format is "firstname middleinitial. lastname"
                 if '.' in name and len(parts) == 3:
                     name_dict['first_name'] = parts[0]
