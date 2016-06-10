@@ -457,7 +457,7 @@ class Files(object):
         object_fh = models.File
 
         # Get rid of spaces in filename
-        filename = title.replace(' ', '_') + '.pdf'
+        filename = urllib_quote(title) + '.pdf'
 
         headers = dict()
         headers['Content-Type'] = 'application/pdf'
