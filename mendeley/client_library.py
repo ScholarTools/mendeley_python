@@ -24,7 +24,11 @@ from .utils import get_list_class_display as cld
 from . import utils
 from .api import API
 from . import models
-import reference_resolver as rr
+
+from .optional import rr
+
+#import reference_resolver as rr
+
 from mendeley_errors import *
 
 
@@ -78,7 +82,7 @@ class UserLibrary:
         self.docs = sync_result.docs
         self._save()
 
-    def get_document(self, doi, return_json=False):
+    def get_document(self, doi=None,index=None, return_json=False):
         """
         Returns the document (i.e. metadata) for a given DOI,
         if the DOI is found in the library.
@@ -99,37 +103,81 @@ class UserLibrary:
 
         """
         
-        # Search through pandas dataframe for a document with target DOI.
-        # Entries are indexed using the document ID, so when the correct
-        # DOI is found, the document ID is the index of that entry.
-        document = self.docs.loc[self.docs['doi'] == doi]
-
-        if len(document) == 0:
-            raise DOINotFoundError("DOI not found in library")
-
-        doc_id = document.index[0]
-        document_json = document['json'][0]
-        document_json['doi'] = doi
-
+        if index is not None:
+            #TDOO: do a range check
+            if index < 0 or index >= len(self.docs):
+                raise Exception('Out of bounds index request')
+            
+            document_json = self.docs.ix[index]['json']
+        elif doi is not None:
+            #JAH: Use masking in pandas to select values
+            #   - you don't need to get the location
+            #
+            #partial old code:
+            #   document = self.docs.loc[self.docs['doi'] == doi]
+            temp = self.docs[self.docs['doi'] == doi]
+            if len(temp) == 0:
+                raise DOINotFoundError("DOI not found in library")
+                
+            #TODO: Check for > 1 - throw a warning?
+            document_json = temp['json'][0]
+        else:
+            raise Exception('Unrecognized search option')
+        
         if return_json:
             return document_json
         else:
-            doc_obj = models.Document(document_json, API())
-            return doc_obj
+            #JAH: Old code was API() instead of self.api
+            #This is unecessary ...
+            return models.Document(document_json, self.api)
 
     def check_for_document(self, doi):
         """
+        JAH: This shouldn't be in the documentation string.
+        This can be an additional string after the main documentation string
+        
         Attempts to call self.get_document. If it runs without
         error, it means the DOI exists in the library, so method returns
         True. If get_document throws a DOINotFoundError, method returns False.
         """
         try:
-            self.get_document(doi)
+            self.get_document(doi=doi)
             return True
         except DOINotFoundError:
             return False
 
     def add_to_library(self, doi):
+        """
+        
+        Parameters
+        ----------
+        doi : string
+        
+        Improvements:
+        - allow adding via PMID
+        - pdf entry should be optional with default true
+        - also need to handle adding pdf if possible but no error
+        if not possible
+        
+        """
+        
+        #TODO: Do we want to check our library for the doi?
+        #- perhaps this should be an optional flag with a default not-check value
+
+        #JAH: Yikes, this section should change (I think)
+        #
+        #   We can talk about this ...
+        #
+        #   This should be the entirety of the call:
+        #
+        #   Originally:
+        #   formatted_entry = pypub.getPaperInfo(doi=doi) 
+        #
+        #   Changed based on adding the pdf as well:
+        #   paper_interface = pypub.getPaperInterface(doi=doi)
+        #   formatted_entry = paper_interface.getInfo
+        #
+        #----------------------------------------------------------------------
         # Get paper information from DOI
         paper_info = rr.resolve_doi(doi)
 
@@ -137,23 +185,42 @@ class UserLibrary:
         scraper_obj = paper_info.scraper_obj
         mod = __import__('pypub.publishers.pub_objects', fromlist=[scraper_obj])
         scraper = getattr(mod, scraper_obj)
-
+ 
         print(scraper)
 
         print(paper_info.entry)
 
         formatted_entry = self._format_doc_entry(paper_info.entry)
+        #----------------------------------------------------------------------
 
-        api = API()
-        new_document = api.documents.create(formatted_entry)
+        #JAH: again, use the already creted api
+        #
+        #   Old code:
+        #       api = API()
+        #       new_document = api.documents.create(formatted_entry)
+        new_document = self.api.documents.create(formatted_entry)
 
+        #JAH: Again, this should just be:
+        #   pdf_content = paper_interface.get_pdf_content
+        #   
+        #   There should probably be a check as to whether the interface was
+        # actually able to get the pdf
         pdf_content = scraper.get_pdf_content(scraper, paper_info.pdf_link)
 
         new_document.add_file({'file' : pdf_content})
+        
+        #JAH: library is now out of date, I would think this is not expected
+        #again, another optional input?
 
+        #JAH: Why return this? Update documentation
         return True
 
     def _format_doc_entry(self, entry):
+        """
+        JAH: TODO: documentation needs to be updated
+        #        
+        """
+        
         # Format author names
         authors = entry.get('authors')
         formatted_author_names = None
