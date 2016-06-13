@@ -17,8 +17,7 @@ import os
 import pandas as pd
 import pickle
 
-import pdb
-
+# Local imports
 from .utils import float_or_none_to_string as fstr
 from .utils import get_list_class_display as cld
 from . import utils
@@ -82,7 +81,7 @@ class UserLibrary:
         self.docs = sync_result.docs
         self._save()
 
-    def get_document(self, doi=None,index=None, return_json=False):
+    def get_document(self, doi=None, index=None, return_json=False):
         """
         Returns the document (i.e. metadata) for a given DOI,
         if the DOI is found in the library.
@@ -104,7 +103,7 @@ class UserLibrary:
         """
         
         if index is not None:
-            #TDOO: do a range check
+            # TODO: a range check
             if index < 0 or index >= len(self.docs):
                 raise Exception('Out of bounds index request')
             
@@ -112,9 +111,6 @@ class UserLibrary:
         elif doi is not None:
             #JAH: Use masking in pandas to select values
             #   - you don't need to get the location
-            #
-            #partial old code:
-            #   document = self.docs.loc[self.docs['doi'] == doi]
             temp = self.docs[self.docs['doi'] == doi]
             if len(temp) == 0:
                 raise DOINotFoundError("DOI not found in library")
@@ -127,18 +123,21 @@ class UserLibrary:
         if return_json:
             return document_json
         else:
-            #JAH: Old code was API() instead of self.api
-            #This is unecessary ...
             return models.Document(document_json, self.api)
 
     def check_for_document(self, doi):
         """
-        JAH: This shouldn't be in the documentation string.
-        This can be an additional string after the main documentation string
-        
-        Attempts to call self.get_document. If it runs without
-        error, it means the DOI exists in the library, so method returns
-        True. If get_document throws a DOINotFoundError, method returns False.
+        Attempts to call self.get_document and checks for error.
+        If no error, the DOI has been found.
+
+        Parameters
+        ----------
+        doi - document DOI
+
+        Returns
+        -------
+        bool - True if DOI is found in the Mendeley library.
+            False otherwise.
         """
         try:
             self.get_document(doi=doi)
@@ -146,7 +145,7 @@ class UserLibrary:
         except DOINotFoundError:
             return False
 
-    def add_to_library(self, doi):
+    def add_to_library(self, doi, check_in_lib=False, add_pdf=True):
         """
         
         Parameters
@@ -160,9 +159,10 @@ class UserLibrary:
         if not possible
         
         """
-        
-        #TODO: Do we want to check our library for the doi?
-        #- perhaps this should be an optional flag with a default not-check value
+        if check_in_lib:
+            if self.check_for_document():
+                print('Already in library.')
+                return
 
         #JAH: Yikes, this section should change (I think)
         #
@@ -182,22 +182,11 @@ class UserLibrary:
         paper_info = rr.resolve_doi(doi)
 
         # Get appropriate scraper object
-        scraper_obj = paper_info.scraper_obj
-        mod = __import__('pypub.publishers.pub_objects', fromlist=[scraper_obj])
-        scraper = getattr(mod, scraper_obj)
- 
-        print(scraper)
-
-        print(paper_info.entry)
+        scraper = paper_info.scraper
 
         formatted_entry = self._format_doc_entry(paper_info.entry)
         #----------------------------------------------------------------------
 
-        #JAH: again, use the already creted api
-        #
-        #   Old code:
-        #       api = API()
-        #       new_document = api.documents.create(formatted_entry)
         new_document = self.api.documents.create(formatted_entry)
 
         #JAH: Again, this should just be:
@@ -205,9 +194,12 @@ class UserLibrary:
         #   
         #   There should probably be a check as to whether the interface was
         # actually able to get the pdf
-        pdf_content = scraper.get_pdf_content(scraper, paper_info.pdf_link)
 
-        new_document.add_file({'file' : pdf_content})
+        if add_pdf:
+            pdf_content = scraper.get_pdf_content(scraper, paper_info.pdf_link)
+
+            # TODO: check whether interface actually got a pdf
+            new_document.add_file({'file' : pdf_content})
         
         #JAH: library is now out of date, I would think this is not expected
         #again, another optional input?
@@ -217,8 +209,24 @@ class UserLibrary:
 
     def _format_doc_entry(self, entry):
         """
-        JAH: TODO: documentation needs to be updated
-        #        
+        Mendeley API has specific input formatting when creating a document.
+         - Parses author names and separates into separate "first_name" and
+            "last_name" fields.
+         - Restricts keywords from being > 50 characters. If one is found,
+            it is split by spaces and saved as separate keywords.
+         - Changes "publication" to "publisher" to fit syntax.
+         - Sets "type" to "journal"
+         - Saves DOI within "identifiers" field.
+
+        Parameters
+        ----------
+        entry : str
+            Unformatted paper information, usually from PaperInfo class
+
+        Returns
+        -------
+        entry : str
+            Paper information with proper formatting applied.
         """
         
         # Format author names
@@ -234,9 +242,6 @@ class UserLibrary:
                 name = name.strip()
                 parts = name.split(' ')
 
-                import pdb
-                #pdb.set_trace()
-
                 # If format is "firstname middleinitial. lastname"
                 if '.' in name and len(parts) == 3:
                     name_dict['first_name'] = parts[0]
@@ -250,6 +255,18 @@ class UserLibrary:
                     name_dict['first_name'] = parts[0]
                     name_dict['last_name'] = parts[1]
                 formatted_author_names.append(name_dict)
+
+        # Make sure keywords are <= 50 characters
+        if entry.get('keywords') is not None:
+            to_remove = []
+            for keyword in entry['keywords']:
+                if len(keyword) > 50:
+                    to_remove.append(keyword)
+                    smaller_keywords = keyword.split(' ')
+                    for word in smaller_keywords:
+                        entry['keywords'].append(word)
+            for long_word in to_remove:
+                entry['keywords'].remove(long_word)
 
         entry['authors'] = formatted_author_names
         entry['publisher'] = entry['publication']
@@ -396,9 +413,6 @@ class Sync(object):
 
         self.time_update_sync = ctime() - start_sync_time
 
-        import pdb
-        #pdb.set_trace()
-
         self.verbose_print('Done running "UPDATE SYNC" in %s seconds' % fstr(self.time_update_sync))
 
     def get_updates_and_new_entries(self, newest_modified_time):
@@ -438,8 +452,6 @@ class Sync(object):
             in_old_mask = updated_rows_df.index.isin(self.docs.index)
             if not in_old_mask.all():
                 print('Logic error, updated entries are not in the original')
-                #import pdb
-                #pdb.set_trace()
                 raise Exception('Logic error, updated entries are not in the original')
 
             updated_indices = updated_rows_df.index
