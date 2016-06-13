@@ -458,6 +458,11 @@ class Files(object):
 
         # Get rid of spaces in filename
         filename = urllib_quote(title) + '.pdf'
+        filename = filename.replace('/', '%2F')
+        print(filename)
+
+        import pdb
+        #pdb.set_trace()
 
         headers = dict()
         headers['Content-Type'] = 'application/pdf'
