@@ -13,3 +13,6 @@ class DOINotFoundError(KeyError):
 
 class CallFailedException(Exception):
     pass
+
+class PDFError(Exception):
+    pass
