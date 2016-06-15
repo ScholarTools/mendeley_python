@@ -164,48 +164,24 @@ class UserLibrary:
                 print('Already in library.')
                 return
 
-        #JAH: Yikes, this section should change (I think)
-        #
-        #   We can talk about this ...
-        #
-        #   This should be the entirety of the call:
-        #
-        #   Originally:
-        #   formatted_entry = pypub.getPaperInfo(doi=doi) 
-        #
-        #   Changed based on adding the pdf as well:
-        #   paper_interface = pypub.getPaperInterface(doi=doi)
-        #   formatted_entry = paper_interface.getInfo
-        #
         #----------------------------------------------------------------------
         # Get paper information from DOI
         paper_info = rr.resolve_doi(doi)
 
-        # Get appropriate scraper object
-        scraper = paper_info.scraper
-
         formatted_entry = self._format_doc_entry(paper_info.entry)
-        #----------------------------------------------------------------------
-
         new_document = self.api.documents.create(formatted_entry)
 
-        #JAH: Again, this should just be:
-        #   pdf_content = paper_interface.get_pdf_content
-        #   
-        #   There should probably be a check as to whether the interface was
-        # actually able to get the pdf
-
+        # Get pdf
         if add_pdf:
-            pdf_content = scraper.get_pdf_content(scraper, paper_info.pdf_link)
+            try:
+                pdf_content = paper_info.publisher_interface.get_pdf_content(file_url=paper_info.pdf_link)
+            except Exception:
+                raise PDFError('PDF could not be retrieved')
 
-            # TODO: check whether interface actually got a pdf
-            new_document.add_file({'file' : pdf_content})
-        
-        #JAH: library is now out of date, I would think this is not expected
-        #again, another optional input?
-
-        #JAH: Why return this? Update documentation
-        return True
+            if pdf_content is None:
+                raise PDFError('PDF could not be retrieved')
+            else:
+                new_document.add_file({'file' : pdf_content})
 
     def _format_doc_entry(self, entry):
         """
@@ -267,6 +243,10 @@ class UserLibrary:
                         entry['keywords'].append(word)
             for long_word in to_remove:
                 entry['keywords'].remove(long_word)
+
+        # Get rid of alpha characters in Volume field
+        vol = entry['volume']
+        entry['volume'] = ''.join(c for c in vol if not c.isalpha())
 
         entry['authors'] = formatted_author_names
         entry['publisher'] = entry['publication']
