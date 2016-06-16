@@ -112,11 +112,18 @@ class UserLibrary:
             #JAH: Use masking in pandas to select values
             #   - you don't need to get the location
             temp = self.docs[self.docs['doi'] == doi]
-            if len(temp) == 0:
+            temp_upper = self.docs[self.docs['doi'] == doi.upper()]
+            temp_lower = self.docs[self.docs['doi'] == doi.lower()]
+            if len(temp) == 0 and len(temp_upper) == 0 and len(temp_lower) == 0:
                 raise DOINotFoundError("DOI not found in library")
                 
             #TODO: Check for > 1 - throw a warning?
-            document_json = temp['json'][0]
+            if len(temp) !=0:
+                document_json = temp['json'][0]
+            elif len(temp_upper) !=0:
+                document_json = temp_upper['json'][0]
+            elif len(temp_lower) !=0:
+                document_json = temp_lower['json'][0]
         else:
             raise Exception('Unrecognized search option')
         
