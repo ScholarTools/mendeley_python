@@ -2,14 +2,21 @@
 """
 This module is meant to implement all functions described at:
 
-    http://dev.mendeley.com/methods/
-    https://api.mendeley.com/apidocs/apis #nicer interface, more up to date
+    #1) http://dev.mendeley.com/methods/
+    #
+    #   Shows request parameters a bit more clearly    
+    
+    #2) https://api.mendeley.com/apidocs/apis
+    #
+    #   Testing interface, nicer organization
+    
 
 General Usage
 -------------
-from mendeley import api as mapi
-um = mapi.UserMethods()
-pm = mapi.PublicMethods()
+from mendeley import API
+user_api = API()
+public_api = API()
+
 
 Request Options
 ---------------
@@ -19,14 +26,6 @@ supported:
     TODO: fill this in: example _return_type
 
 TODO: Create an options class that can be given to the request (e.g. for return type)
-
-
-Improvements
-------------
-1) Move functions with static info into a subclass
-- academic_statuses
-- disciplines
-
 
 Method Types (from Mendeley)
 ----------------------------
@@ -50,17 +49,21 @@ Errors
 
 """
 
+#Standard Library
 import sys
 import mimetypes
 from os.path import basename
 from datetime import datetime
-from . import auth
-import requests
-import pdb
 import json
+
+#Third party
+import requests
+
+#Local Imports
+from . import auth
 from . import models
 from . import utils
-from mendeley_errors import *
+#from . import errors
 
 
 PY2 = int(sys.version[0]) == 2
@@ -89,7 +92,7 @@ document_fcns = {None: models.Document,
                  'deleted': models.DeletedDocument
                  }
 
-
+#==============================================================================
 class API(object):
     """
     This is a shared superclass for both the public and private API classes.
@@ -117,11 +120,11 @@ class API(object):
         self.s = requests.Session()
         if user_name == 'public':
             self.public_only = True
-            token = auth.retrieve_public_credentials()
+            token = auth.retrieve_public_authorization()
             self.user_name = 'public'
         else:
             self.public_only = False
-            token = auth.retrieve_user_credentials(user_name, session=self.s)
+            token = auth.retrieve_user_authorization(user_name, session=self.s)
             self.user_name = token.user_name
 
         # Options ... (I might change this ...)
@@ -131,6 +134,7 @@ class API(object):
         self.last_response = None
         self.last_params = None
 
+        #TODO: Eventually I'd like to trim this based on user vs public
         self.annotations = Annotations(self)
         self.definitions = Definitions(self)
         self.documents = Documents(self)
@@ -350,7 +354,7 @@ class Definitions(object):
         """
         url = BASE_URL + '/subject_areas'
 
-        return self.parent.make_get_request(url, models.subject_areas(), kwargs)
+        return self.parent.make_get_request(url, models.subject_areas, kwargs)
 
     def document_types(self, **kwargs):
         """

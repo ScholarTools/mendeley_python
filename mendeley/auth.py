@@ -11,34 +11,38 @@ http://apidocs.mendeley.com/home/authentication
 
 Important Methods
 -----------------
-
-
+retrieve_public_authorization
+retrieve_user_authorization
 
 
 """
+#Standard Library
 from __future__ import print_function
-
-import requests
-from requests.auth import AuthBase
-
-import datetime
-import pytz #This seems to be a 3rd party library but is installed on
-#my local Python installation (Py Timze Zones)
 
 import pickle
 import os
 import sys
+import datetime
 
+
+#Third Party
+import requests
+from requests.auth import AuthBase
+import pytz #This seems to be a 3rd party library but is installed on
+#my local Python installation (Py Timze Zones)
+
+#Local imports
 from . import utils
+from .utils import get_truncated_display_string as td
 from . import config
+from . import errors
 
 
-def print_error(*args, **kwargs):
+#Error definitions
+#-------------------------------------
+def _print_error(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
-
-class AuthException(Exception):
-    pass
 
 """
 -------------------------------------------------------------------------------
@@ -46,7 +50,7 @@ These are methods that other modules might want to access directly.
 
 """
 
-def retrieve_public_credentials():
+def retrieve_public_authorization():
     """
     Loads public credentials
 
@@ -55,19 +59,19 @@ def retrieve_public_credentials():
     PublicCredentials    
     """
     
-    if PublicCredentials.token_exists_on_disk(user_name='public'):
-        return PublicCredentials.load()
+    if _PublicAuthorization.token_exists_on_disk():
+        return _PublicAuthorization.load()
     else:
-        return PublicCredentials()
+        return _PublicAuthorization()
         
-def retrieve_user_credentials(user_name=None,user_info=None,session=None):
+def retrieve_user_authorization(user_name=None,user_info=None,session=None):
     """
     
     """
-    if UserCredentials.token_exists_on_disk(user_name,user_info):
-        return UserCredentials.load(user_name,user_info,session)
+    if _UserAuthorization.token_exists_on_disk(user_name,user_info):
+        return _UserAuthorization.load(user_name,user_info,session)
     else:
-        return UserCredentials(user_name,user_info,session)
+        return _UserAuthorization(user_name,user_info,session)
         
 """
 -------------------------------------------------------------------------------
@@ -75,12 +79,12 @@ def retrieve_user_credentials(user_name=None,user_info=None,session=None):
 #%% 
 
 
-class _Credentials(AuthBase):
+class _Authorization(AuthBase):
     
     """
     This is a superclass for:
-    UserCredentials
-    PublicCredentials
+    _UserAuthorization
+    _PublicAuthorization
     
     TODO: I currently have a lot of duplicated code between the two classes that
     needs to be moved to here.
@@ -204,7 +208,7 @@ class _Credentials(AuthBase):
         with open(save_path, "wb") as f:
             pickle.dump(self,f)
 
-class PublicCredentials(_Credentials):
+class _PublicAuthorization(_Authorization):
     
     """
     TODO: Fill this out    
@@ -278,7 +282,7 @@ class PublicCredentials(_Credentials):
         
         """
    
-        load_path = cls.get_file_path()
+        load_path = cls.get_file_path('public')
         
         if not os.path.isfile(load_path):
             raise Exception('Requested token does not exist')
@@ -290,21 +294,19 @@ class PublicCredentials(_Credentials):
           
         return self 
 
-class UserCredentials(_Credentials):
+class _UserAuthorization(_Authorization):
     
     """
     This class represents an access token (and refresh token). An access token 
     allows a program to access user specific information. This class should 
     normally be retrieved by:
     
-    #TODO: replace with functions
-    1) Calling UserCredentials.load(user_name)
-    2) Calling get_access_token(user_name,password)
+    1) retrieve_user_authorization
     
     Attributes
     ----------
-    from_disk : logical
-        Whether or not the class was instantiated from disk
+    from_disk : bool
+        Whether or not the class was instantiated from disk.
     version : string
         The current version of the access token. Since these are saved to disk
         this value is retained in case we need to make changes.
@@ -316,8 +318,6 @@ class UserCredentials(_Credentials):
         to a request for an access token but I'm not using it. Currently the 
         value is "bearer"
         
-    JAH NOTE: I'm not thrilled with the name of this class ...
-    #UserAccess instead? - just this implies it only handles the access token
     """  
     
     
@@ -327,9 +327,11 @@ class UserCredentials(_Credentials):
         """
         Parameters
         ----------
-        json : dict
-        user_name :
+        user_name : string
+            Allows retrieval of the user's credential information based
+            on an alias 
         user_info : UserInfo
+        session :        
         
         Examples
         --------
@@ -338,6 +340,7 @@ class UserCredentials(_Credentials):
         """
         
         user_info = self.resolve_user_info(user_name,user_info)
+        
         self.version = 1
         self.from_disk = False
         self.populate_session(session)
@@ -348,6 +351,12 @@ class UserCredentials(_Credentials):
         self.save()
      
     def create_initial_token(self,user_info):
+        """
+        Parameters
+        ----------
+        user_info
+        
+        """
         temp = UserTokenRetriever(user_info,self.session)
         return temp.token_json
         
@@ -365,16 +374,18 @@ class UserCredentials(_Credentials):
         return None
 
     def __repr__(self):
-        pv = ['version',self.version,'user_name',self.user_name,
-              'access_token',self.access_token,'token_type',self.token_type,
-              'refresh_token',self.refresh_token,'expires',self.expires,
+        pv = ['version',self.version,
+              'user_name',self.user_name,
+              'access_token',td(self.access_token),
+              'token_type',self.token_type,
+              'refresh_token',td(self.refresh_token),
+              'expires',self.expires,
               'token_expired',self.token_expired]
         return utils.property_values_to_string(pv)
 
     @classmethod
     def token_exists_on_disk(cls,user_name=None,user_info=None):
         """
-        For public use 'public'
         """
         
         user_info = cls.resolve_user_info(user_name,user_info)
@@ -383,8 +394,12 @@ class UserCredentials(_Credentials):
       
     @classmethod
     def resolve_user_info(cls,user_name,user_info):
+        """
+        Given default values of user_name and user_info, determine
+        which one was a valid input (i.e. which was speficied)
+        """
         if user_info is None:
-            user_info = ConfigUserInfo(user_name)  
+            user_info = UserInfo.from_config(user_name)  
             
         return user_info
       
@@ -401,7 +416,8 @@ class UserCredentials(_Credentials):
             config.Oauth2Credentials.client_secret)
         
         post_data = {"grant_type"   :   "refresh_token",
-                     "refresh_token":   self.refresh_token}
+                     "refresh_token":   self.refresh_token,
+                     "redirect_uri":    config.Oauth2Credentials.redirect_url}
        
         #TODO: We should replace this with the session object            
         r = requests.post(self.AUTH_URL,auth=client_auth,data=post_data)
@@ -430,19 +446,19 @@ class UserCredentials(_Credentials):
         # => none of these
         #throw specific errors for each of these
         if r.status_code != requests.codes.ok:
-            print_error("Error for user: ", self.user_name)
+            _print_error("Error for user: ", self.user_name)
             
             if (self.from_disk):
-                print_error("Credentials loaded from:\n%s" % self.get_file_path(self.user_name))
+                _print_error("Credentials loaded from:\n%s" % self.get_file_path(self.user_name))
             
-            print_error("------------------------------------------------")
-            print_error(r.text)
-            print_error("------------------------------------")
+            _print_error("------------------------------------------------")
+            _print_error(r.text)
+            _print_error("------------------------------------")
             #This assumes we are loading from disk ...
-            print_error("The current solution is to delete the saved credentials")
+            _print_error("The current solution is to delete the saved credentials")
             import pdb
             pdb.set_trace()
-            raise AuthException('TODO: Fix me, request failed ...')
+            raise errors.AuthException('TODO: Fix me, request failed ...')
       
         self.init_json_attributes(r.json())      
         self.save()
@@ -485,49 +501,17 @@ class UserCredentials(_Credentials):
                           
         return self    
 
-
-class ConfigUserInfo(object):
-    
-    def __init__(self,user_name):
-        self.user_name = None
-        self.password = None
-        self.type = None
-        self.resolve_user_name(user_name)
-    
-    def resolve_user_name(self,user_name):
-        """
-        Parameters
-        ----------
-        user_name : string or None
-            If the user_name is None, it is replaced with the default
-            user from the configuration file.
-        """
-        
-        if user_name is None:
-            du = config.DefaultUser
-            self.user_name = du.user_name
-            self.password = du.password
-            self.type = 'default'
-        elif user_name == '':
-            raise Exception('specified user_name must be a non-empty string or None')
-        else:
-            if hasattr(config,'other_users'):
-                other_users = config.other_users
-                if user_name in other_users:
-                    temp = other_users[user_name]
-                    self.user_name = temp.user_name
-                    self.password = temp.password
-                    self.type = 'other users'
-                else:
-                    raise Exception('The specified alias could not be found in the "other_users" keys()')
-            else:
-                raise Exception('"other_users" has not been specified in the config file')
-
 class UserTokenRetriever(object):
     
     def __init__(self,user_info,session):
         """
+        
         UserTokenRetriever(user_info,session)
+        
+        Parameters
+        ----------
+        user_info : UserInfo
+        session : requests.Session
         """
         self.session = session
         self.user_info = user_info
@@ -559,7 +543,7 @@ class UserTokenRetriever(object):
         #----------------------------------------------
         payload = {
             'client_id'     : config.Oauth2Credentials.client_id,
-            'redirect_uri'  : 'https://localhost', 
+            'redirect_uri'  : 'https://localhost',
             'scope'         : 'all',
             'response_type' : 'code'}
         r = self.session.get(URL, params=payload)
@@ -673,10 +657,30 @@ class UserInfo(object):
     def __init__(self,user_name,password):
         self.user_name = user_name
         self.password = password
+        self.type = 'user input'
     
+    @classmethod
+    def from_config(cls,user_name=None):
+
+        self = cls.__new__(cls)
+
+        user = config.get_user(user_name)
+        
+        self.user_name = user.user_name
+        self.password = user.password
+        if user_name is None:
+            self.type = 'default'
+        else:
+            self.type = 'other user'
+            
+        return self
 
 
-
+    def __repr__(self):
+        pv = ['user_name',self.user_name,
+              'password',self.password,
+              'type',self.type]
+        return utils.property_values_to_string(pv)
 
 
 

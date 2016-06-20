@@ -13,8 +13,8 @@ def test_definitions():
     academic_statuses = m.definitions.academic_statuses()
     print('Retrieved academic statuses')
     
-    disciplines = m.definitions.disciplines()
-    print('Retrieved disciplines')
+    subject_areas = m.definitions.subject_areas()
+    print('Retrieved subject areas')
 
     document_types = m.definitions.document_types()
     print('Retrieved document types')

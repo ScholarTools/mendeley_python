@@ -3,16 +3,23 @@
 
 This module stores user parameters. The _template
 version is only meant as an example. A new user should
-copy this version into "config.py" and fill in the values
+copy this version into "user_config.py" and fill in the values
 as appropriate.
 
-The "config.py" file is ignored from GIT commits so as to not be public
+The "user_config.py" file is ignored from GIT commits so as to not be public
+
+The "config_location" parameter can be used to specify a remote location from which
+to load the config file.
 
 
 """
 
+#If specified, this specifies that the config file should be loaded
+#from the specified location. 
+config_location = 'C:\users\my_mendeley_config.py'
 
-# Required. This can be obtained from Mendeley.
+
+# REQUIRED. This can be obtained from Mendeley.
 #
 #   http://dev.mendeley.com/
 #
