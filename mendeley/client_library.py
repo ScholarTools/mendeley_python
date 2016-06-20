@@ -115,6 +115,11 @@ class UserLibrary:
             #would be invalid. i.e. ABC is not the same as abc
             #Please document accordingly
             temp = self.docs[self.docs['doi'] == doi]
+            
+            #TODO: check for a match here, if not, do these other checks
+            #TODO: Eventually, once we know the rules on case sensitivity, store
+            #the DOIs accordingly and do the conversion on the input DOI            
+            
             temp_upper = self.docs[self.docs['doi'] == doi.upper()]
             temp_lower = self.docs[self.docs['doi'] == doi.lower()]
             if len(temp) == 0 and len(temp_upper) == 0 and len(temp_lower) == 0:
