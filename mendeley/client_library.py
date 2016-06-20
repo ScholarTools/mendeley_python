@@ -24,6 +24,7 @@ from .api import API
 from . import errors
 from . import models
 from . import utils
+from .optional import rr
 
 fstr = utils.float_or_none_to_string
 cld = utils.get_list_class_display
@@ -110,8 +111,9 @@ class UserLibrary:
             
             document_json = self.docs.ix[index]['json']
         elif doi is not None:
-            #JAH: Use masking in pandas to select values
-            #   - you don't need to get the location
+            #JAH: Yikes, was upper vs lower ever an issue? It seems this this
+            #would be invalid. i.e. ABC is not the same as abc
+            #Please document accordingly
             temp = self.docs[self.docs['doi'] == doi]
             temp_upper = self.docs[self.docs['doi'] == doi.upper()]
             temp_lower = self.docs[self.docs['doi'] == doi.lower()]
@@ -120,7 +122,7 @@ class UserLibrary:
                 
             #TODO: Check for > 1 - throw a warning?
             if len(temp) !=0:
-            document_json = temp['json'][0]
+                document_json = temp['json'][0]
             elif len(temp_upper) !=0:
                 document_json = temp_upper['json'][0]
             elif len(temp_lower) !=0:
@@ -184,12 +186,12 @@ class UserLibrary:
             try:
                 pdf_content = paper_info.publisher_interface.get_pdf_content(file_url=paper_info.pdf_link)
             except Exception:
-                raise PDFError('PDF could not be retrieved')
+                raise errors.PDFError('PDF could not be retrieved')
 
             if pdf_content is None:
-                raise PDFError('PDF could not be retrieved')
+                raise errors.PDFError('PDF could not be retrieved')
             else:
-            new_document.add_file({'file' : pdf_content})
+                new_document.add_file({'file' : pdf_content})
         
     def _format_doc_entry(self, entry):
         """

@@ -4,11 +4,13 @@
 
 #TODO: Should build in forced renewals
 
-import sys
-sys.path.append('..')
+if __name__ == '__main__':
+    import sys
+    sys.path.append('..')
 
 from mendeley import auth
-from mendeley import config
+from mendeley import config 
+
 
 def test_auth():
     public_credentials = auth.retrieve_public_authorization()
