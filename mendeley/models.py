@@ -15,14 +15,10 @@ mendeley.api => contains the code that makes requests for these models
 
 """
 
-from collections import OrderedDict as ODict
-
+#Local Imports
 from .utils import get_truncated_display_string as td
 from .utils import get_list_class_display as cld
-from mendeley_errors import *
-
 from .optional import rr, pub_objects
-
 from . import utils
 
 """

@@ -2,48 +2,125 @@
 """
 """
 
-#JAH: We might want to support specifying a file that trys to load the config
-#file by path
-#
-#This would allow specifying a synced config file 
-#http://stackoverflow.com/a/19011259/764365
 
-#TODO: Surround with a try catch
-class InvalidConfig(Exception):
-    pass
 
+#Standard Library Imports
+import os
+import importlib.machinery #Python 3.3+
+
+from .errors import InvalidConfigError
+
+#Local Imports
+#---------------------------------------------------------
 try:
-    from . import config
+    from . import user_config as config
 except ImportError:
-    raise InvalidConfig('config.py not found ')
-
-
-def validate_config():
-    #Oauth2Credentials validation
-    #----------------------------------------------------    
-    if not hasattr(config,'Oauth2Credentials'):
-        raise Exception('config.py requires a "Oauth2Credentials" class')
-
-    auth_creds = config.Oauth2Credentials
-    ensure_present_and_not_empty(auth_creds,'Oauth2Credentials','client_secret')
-    ensure_present_and_not_empty(auth_creds,'Oauth2Credentials','client_id')
-    ensure_present_and_not_empty(auth_creds,'Oauth2Credentials','redirect_url')
-    #TODO: can check that redirect url is valid    
+    raise InvalidConfigError('user_config.py not found')
+        
+      
+if hasattr(config,'config_location'):
+    #In this case the config is really only a pointer to another config  
+    config_location = config.config_location
     
-    #   Optional Values
-    #==========================================================================
+    if not os.path.exists(config_location):
+        raise InvalidConfigError('Specified configuration path does not exist')
     
-    #   DefaultUser validation
-    if hasattr(config,'DefaultUser'):
-        du = config.DefaultUser
-        ensure_present_and_not_empty(du,'DefaultUser','user_name')
-        #TODO: Could check for an email        
-        ensure_present_and_not_empty(du,'DefaultUser','password')   
+    loader = importlib.machinery.SourceFileLoader('config', config_location)    
+    config = loader.load_module()
+    
+#-----------------------------------------------------------------
 
-    #   default_save_path validation
-    if hasattr(config,'default_save_path'):
-        pass
-        #TODO: Validate that the path exists
+class Config(object):
+    
+    """
+    Attributes
+    ----------
+    Oauth2Credentials : 
+    DefaultUser : User
+    
+    """
+    
+    def __init__(self):
+        
+        #This initialization code also defines what we are looking for or not looking for
+        if not hasattr(config,'Oauth2Credentials'):
+            raise Exception('config.py requires a "Oauth2Credentials" class')        
+        
+        self.Oauth2Credentials = config.Oauth2Credentials        
+        
+        if hasattr(config,'DefaultUser'):       
+            self.default_user = User(config.DefaultUser)
+            
+        if hasattr(config,'default_save_path'):
+            self.default_save_path = config.default_save_path
+        
+        if hasattr(config,'other_users'):
+            self.other_users = config.other_users
+
+        self.validate()
+    
+    def get_user(self,user_name):
+
+        if user_name is None:
+            return self.default_user
+        
+        if user_name == 'default':
+            return self.default_user
+            
+        if not hasattr(self,'other_users'):
+            raise Exception('Missing user and other_users is not specified in the config file')
+            
+        other_users = self.other_users
+        
+        if user_name not in other_users:
+            raise Exception('other_users config parameter is missing the requested user name')
+            
+        user_data = other_users[user_name]
+        
+        return User(user_data)
+    
+    @property
+    def has_default_user(self):
+        return hasattr(config,'DefaultUser')
+    
+    @property
+    def has_testing_user(self):
+        if not hasattr(config,'other_users'):
+            return False
+        else:
+            #Keys are aliases for the users accounts (others_users should be a dict)
+            return 'testing' in config.other_users
+
+    def validate(self):
+        #Oauth2Credentials validation
+        #----------------------------------------------------    
+
+    
+        auth_creds = self.Oauth2Credentials
+        ensure_present_and_not_empty(auth_creds,'Oauth2Credentials','client_secret')
+        ensure_present_and_not_empty(auth_creds,'Oauth2Credentials','client_id')
+        ensure_present_and_not_empty(auth_creds,'Oauth2Credentials','redirect_url')
+        #TODO: can check that redirect url is valid    
+        
+        #   Optional Values
+        #==========================================================================
+        
+        #   DefaultUser validation
+        if hasattr(self,'DefaultUser'):
+            du = self.DefaultUser
+            ensure_present_and_not_empty(du,'DefaultUser','user_name')
+            #TODO: Could check for an email (i.e. user name is typically an email)        
+            ensure_present_and_not_empty(du,'DefaultUser','password')   
+    
+        #   default_save_path validation
+        if hasattr(config,'default_save_path'):
+            pass
+            #TODO: Validate that the path exists
+
+    def __repr__(self):
+        pv = ['public_only', self.public_only, 'user_name', self.user_name]
+        return utils.property_values_to_string(pv)
+
 
 def ensure_present_and_not_empty(obj_or_dict,name,key_or_attribute,none_is_ok=False):
     
@@ -79,3 +156,13 @@ def ensure_present_and_not_empty(obj_or_dict,name,key_or_attribute,none_is_ok=Fa
     elif len(value) == 0:
         raise InvalidConfig('"%s" in %s was found to be empty and needs to be filled in, please fix the config file' % (key_or_attribute,name))
     
+class User(object):
+    
+    def __init__(self,config_default_user):
+        #TODO: Allow variations on the User formats
+            #e.g => (user_name,password) or list
+            #e.g => JSON or YAML            
+            #e.g. => currently a class
+            #=> promote to a class        
+        self.user_name = config_default_user.user_name
+        self.password = config_default_user.password

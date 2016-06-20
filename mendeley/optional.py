@@ -8,7 +8,7 @@ rr
 pub_objects
 """
 
-from mendeley_errors import OptionalLibraryError
+from .errors import OptionalLibraryError
 
 class MissingModule(object):
     """

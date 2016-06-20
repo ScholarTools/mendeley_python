@@ -10,31 +10,32 @@ Features:
 
 """
 
+#Standard Library Imports
 from datetime import datetime
-
 from timeit import default_timer as ctime
 import os
-import pandas as pd
 import pickle
 
+#Third Party Imports
+import pandas as pd
+
 # Local imports
-from .utils import float_or_none_to_string as fstr
-from .utils import get_list_class_display as cld
-from . import utils
 from .api import API
+from . import errors
 from . import models
+from . import utils
 
-from .optional import rr
-
-#import reference_resolver as rr
-
-from mendeley_errors import *
+fstr = utils.float_or_none_to_string
+cld = utils.get_list_class_display
 
 
 class UserLibrary:
     """
     Attributes
     ----------
+    api
+    user_name
+    verbose
     sync_result :
     doc_objects :
     docs : Pandas entry
@@ -61,10 +62,10 @@ class UserLibrary:
         self.sync()
 
     def __repr__(self):
-        pv = ['api', cld(self.api),
-              'user_name', self.user_name,
-              'docs', cld(self.docs),
-              'raw', cld(self.raw)]
+        pv = ['api',        cld(self.api),
+              'user_name',  self.user_name,
+              'docs',       cld(self.docs),
+              'raw',        cld(self.raw)]
         return utils.property_values_to_string(pv)
 
     def sync(self):
@@ -113,7 +114,7 @@ class UserLibrary:
             #   - you don't need to get the location
             temp = self.docs[self.docs['doi'] == doi]
             if len(temp) == 0:
-                raise DOINotFoundError("DOI not found in library")
+                raise errors.DOINotFoundError("DOI not found in library")
                 
             #TODO: Check for > 1 - throw a warning?
             document_json = temp['json'][0]
@@ -142,7 +143,7 @@ class UserLibrary:
         try:
             self.get_document(doi=doi)
             return True
-        except DOINotFoundError:
+        except errors.DOINotFoundError:
             return False
 
     def add_to_library(self, doi, check_in_lib=False, add_pdf=True):

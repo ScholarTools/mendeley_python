@@ -1,4 +1,5 @@
 /mendeley/config.py
+/mendeley/user_config.py
 /mendeley/testing_config.py
 /mendeley/acct_config.py
 /.idea/
