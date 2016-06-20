@@ -17,5 +17,6 @@ class CallFailedException(Exception):
 
 class PDFError(Exception):
     pass
+
 class AuthException(Exception):
     pass
