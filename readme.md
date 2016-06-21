@@ -1,4 +1,6 @@
 # Mendeley Code For Python #
+
+[![Join the chat at https://gitter.im/ScholarTools/mendeley_python](https://badges.gitter.im/ScholarTools/mendeley_python.svg)](https://gitter.im/ScholarTools/mendeley_python?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 This repo implements the Mendeley API in Python. It also implements a client library. It will also implement library analysis code.
 
 ##Motivation##
