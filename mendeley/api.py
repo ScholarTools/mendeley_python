@@ -63,8 +63,7 @@ import requests
 from . import auth
 from . import models
 from . import utils
-#from . import errors
-
+from .errors import *
 
 PY2 = int(sys.version[0]) == 2
 

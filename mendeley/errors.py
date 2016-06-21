@@ -3,7 +3,7 @@
 Contains all custom errors called within the mendeley_python package.
 """
 
-class InvalidConfigError(Exception):
+class InvalidConfig(Exception):
     pass
 
 class OptionalLibraryError(Exception):

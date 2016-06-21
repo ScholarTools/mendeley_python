@@ -8,14 +8,15 @@
 import os
 import importlib.machinery #Python 3.3+
 
-from .errors import InvalidConfigError
-
 #Local Imports
 #---------------------------------------------------------
+from .errors import *
+from . import utils
+
 try:
     from . import user_config as config
 except ImportError:
-    raise InvalidConfigError('user_config.py not found')
+    raise InvalidConfig('user_config.py not found')
         
       
 if hasattr(config,'config_location'):
@@ -23,7 +24,7 @@ if hasattr(config,'config_location'):
     config_location = config.config_location
     
     if not os.path.exists(config_location):
-        raise InvalidConfigError('Specified configuration path does not exist')
+        raise InvalidConfig('Specified configuration path does not exist')
     
     loader = importlib.machinery.SourceFileLoader('config', config_location)    
     config = loader.load_module()
@@ -44,7 +45,7 @@ class Config(object):
         
         #This initialization code also defines what we are looking for or not looking for
         if not hasattr(config,'Oauth2Credentials'):
-            raise Exception('config.py requires a "Oauth2Credentials" class')        
+            raise Exception('user_config.py requires a "Oauth2Credentials" class')
         
         self.Oauth2Credentials = config.Oauth2Credentials        
         
