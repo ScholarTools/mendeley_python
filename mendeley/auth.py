@@ -76,8 +76,6 @@ def retrieve_user_authorization(user_name=None,user_info=None,session=None):
 """
 -------------------------------------------------------------------------------
 """
-#%% 
-
 
 class _Authorization(AuthBase):
     
@@ -486,7 +484,7 @@ class _UserAuthorization(_Authorization):
         user_info = cls.resolve_user_info(user_name,user_info)        
         
         load_path = cls.get_file_path(user_info.user_name)
-        
+
         #Handle potentially missing file
         #-------------------------------
         if not os.path.isfile(load_path):
@@ -495,7 +493,7 @@ class _UserAuthorization(_Authorization):
         with open(load_path,'rb') as f:
             self = pickle.load(f)
         
-        self.from_disk = True        
+        self.from_disk = True
         
         self.populate_session(session)
                           

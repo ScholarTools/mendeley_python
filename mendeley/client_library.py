@@ -111,6 +111,7 @@ class UserLibrary:
             
             document_json = self.docs.ix[index]['json']
         elif doi is not None:
+
             #JAH: Yikes, was upper vs lower ever an issue? It seems this this
             #would be invalid. i.e. ABC is not the same as abc
             #Please document accordingly
