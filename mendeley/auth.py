@@ -123,7 +123,11 @@ class _Authorization(AuthBase):
         .gitignore
         """
         
-        return utils.get_save_root(['credentials'],create_folder_if_no_exist)
+        if config.default_save_path is not None:
+            #TODO: Ensure that this folder exists, and create if not
+            return config.default_save_path
+        else:
+            return utils.get_save_root(['credentials'],create_folder_if_no_exist)
 
     @property
     def token_expired(self):        
@@ -491,6 +495,7 @@ class _UserAuthorization(_Authorization):
             raise Exception('Requested token does not exist')
                        
         with open(load_path,'rb') as f:
+            #TODO: Try to do this then specify where we are loading from if this fails
             self = pickle.load(f)
         
         self.from_disk = True

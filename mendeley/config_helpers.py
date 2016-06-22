@@ -10,13 +10,16 @@ import importlib.machinery #Python 3.3+
 
 #Local Imports
 #---------------------------------------------------------
-from .errors import *
+from . import errors
 from . import utils
+from .utils import get_truncated_display_string as td
+from .utils import get_list_class_display as cld
+
 
 try:
     from . import user_config as config
 except ImportError:
-    raise InvalidConfig('user_config.py not found')
+    raise errors.InvalidConfig('user_config.py not found')
         
       
 if hasattr(config,'config_location'):
@@ -24,7 +27,7 @@ if hasattr(config,'config_location'):
     config_location = config.config_location
     
     if not os.path.exists(config_location):
-        raise InvalidConfig('Specified configuration path does not exist')
+        raise errors.InvalidConfig('Specified configuration path does not exist')
     
     loader = importlib.machinery.SourceFileLoader('config', config_location)    
     config = loader.load_module()
@@ -118,8 +121,25 @@ class Config(object):
             pass
             #TODO: Validate that the path exists
 
+        self.Oauth2Credentials = config.Oauth2Credentials        
+        
+        if hasattr(config,'DefaultUser'):       
+            self.default_user = User(config.DefaultUser)
+            
+        if hasattr(config,'default_save_path'):
+            self.default_save_path = config.default_save_path
+        else:
+            self.default_save_path = None
+        
+        if hasattr(config,'other_users'):
+            self.other_users = config.other_users
+
+
     def __repr__(self):
-        pv = ['public_only', self.public_only, 'user_name', self.user_name]
+        pv = ['Oauth2Credentials', cld(self.Oauth2Credentials), 
+              'default_user', cld(getattr(self,'default_user',None)),
+                'default_save_path',getattr(self,'default_save_path',None),
+                'other_users',cld(getattr(self,'other_users',None))]
         return utils.property_values_to_string(pv)
 
 
