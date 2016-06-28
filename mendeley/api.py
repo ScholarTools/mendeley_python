@@ -170,7 +170,7 @@ class API(object):
 
         return self.handle_return(r, return_type, response_params, object_fh)
 
-    def make_get_request(self, url, object_fh, params, response_params=None):
+    def make_get_request(self, url, object_fh, params, response_params=None, headers=None):
         """
 
         Parameters:
@@ -211,25 +211,33 @@ class API(object):
         # This was newly introduced, apparently? Each dev token is only good for 90 days
         # https://development-tokens.mendeley.com/
         dev_token = utils.dev_token
-        header = {'Development-Token' : dev_token}
+
+        if headers is None:
+            headers = {'Development-Token' : dev_token}
+        else:
+            headers['Development-Token'] = dev_token
 
         # NOTE: We make authorization go through the access token. The request
         # will call the access_token prior to sending the request. Specifically
         # the __call__ method is called.
-        r = self.s.get(url, params=params, auth=self.access_token, headers=header)
+        resp = self.s.get(url, params=params, auth=self.access_token, headers=headers)
+
+        #if 'annotation' in url:
+        #    import pdb
+        #    pdb.set_trace()
 
         self.last_url = url
-        self.last_response = r
+        self.last_response = resp
         self.last_params = params
 
-        if not r.ok:
+        if not resp.ok:
             # if r.status_code != good_status:
-            print(r.text)
+            print(resp.text)
             print('')
             # TODO: This should be improved
-            raise Exception('Call failed with status: %d' % (r.status_code))
+            raise Exception('Call failed with status: %d' % (resp.status_code))
 
-        return self.handle_return(r, return_type, response_params, object_fh)
+        return self.handle_return(resp, return_type, response_params, object_fh)
 
     def make_patch_request(self, url, object_fh, params, response_params=None, headers=None, files=None):
         #
@@ -243,16 +251,16 @@ class API(object):
         if files is None:
             params = json.dumps(params)
 
-        r = self.s.patch(url, data=params, auth=self.access_token, headers=headers, files=files)
+        resp = self.s.patch(url, data=params, auth=self.access_token, headers=headers, files=files)
 
-        if not r.ok:
+        if not resp.ok:
             # if r.status_code != good_status:
-            print(r.text)
+            print(resp.text)
             print('')
             # TODO: This should be improved
-            raise Exception('Call failed with status: %d' % (r.status_code))
+            raise Exception('Call failed with status: %d' % (resp.status_code))
 
-        return self.handle_return(r, return_type, response_params, object_fh)
+        return self.handle_return(resp, return_type, response_params, object_fh)
 
     def handle_return(self, req, return_type, response_params, object_fh):
         if return_type is 'object':
@@ -375,13 +383,32 @@ class Annotations(object):
     def __init__(self, parent):
         self.parent = parent
 
-    def get(self):
+    def get(self, **kwargs):
         # https://api.mendeley.com/apidocs#!/annotations/getAnnotations
+
+        url = BASE_URL + '/annotations'
+
+        document_id = kwargs.get('document_id')
+        if document_id is None:
+            raise LookupError('Must enter a document ID to retrieve annotations.')
+
+        params = dict()
+        params['document_id'] = document_id
+        params['include_trashed'] = False
+
+        headers = {'Content-Type' : 'application/vnd.mendeley-annotation.1+json'}
+
+        return self.parent.make_get_request(url, models.Annotation, params, headers=headers)
+
+    def create(self, **kwargs):
         pass
 
-    def delete(self):
-        pass
+    def delete(self, **kwargs):
+        url = BASE_URL + '/annotations'
 
+
+        headers = {'Content-Type' : 'application/vnd.mendeley-folder.1+json'}
+        pass
 
 class Files(object):
     def __init__(self, parent):
@@ -451,8 +478,7 @@ class Files(object):
             Generally models.LinkedFile object
 
         """
-        base_url = 'https://api.mendeley.com'
-        url = base_url + '/files'
+        url = BASE_URL + '/files'
 
         # Extract info from params
         title = params['title']
@@ -466,7 +492,7 @@ class Files(object):
         headers = dict()
         headers['Content-Type'] = 'application/pdf'
         headers['Content-Disposition'] = 'attachment; filename=%s' % filename
-        headers['Link'] = '<' + base_url + '/documents/' + doc_id + '>; rel="document"'
+        headers['Link'] = '<' + BASE_URL + '/documents/' + doc_id + '>; rel="document"'
 
         API.make_post_request(API(), url, object_fh, params, headers=headers, files=file)
 
@@ -490,8 +516,7 @@ class Files(object):
             Generally models.LinkedFile object
 
         """
-        base_url = 'https://api.mendeley.com'
-        url = base_url + '/files'
+        url = BASE_URL + '/files'
 
         # Extract info from params
         title = params['title']
@@ -504,7 +529,7 @@ class Files(object):
         headers = dict()
         headers['Content-Type'] = 'application/pdf'
         headers['Content-Disposition'] = 'attachment; filename=%s' % filename
-        headers['Link'] = '<' + base_url + '/documents/' + doc_id + '>; rel="document"'
+        headers['Link'] = '<' + BASE_URL + '/documents/' + doc_id + '>; rel="document"'
 
         API.make_post_request(API(), url, object_fh, params, headers=headers, files=file)
 
@@ -848,7 +873,7 @@ class UserMethods(API):
             to get someone else's contact info.        
         """
 
-        url = self.BASE_URL + '/profiles/' + (profile_id)
+        url = BASE_URL + '/profiles/' + (profile_id)
 
         params = {}
 
@@ -900,7 +925,7 @@ class UserMethods(API):
         
         """
         # TODO: Add on more usage examples
-        url = self.BASE_URL + '/documents/'
+        url = BASE_URL + '/documents/'
 
         params = kwargs
 

@@ -2,8 +2,6 @@
 """
 """
 
-
-
 #Standard Library Imports
 import os
 import importlib.machinery #Python 3.3+
@@ -14,7 +12,7 @@ from . import errors
 from . import utils
 from .utils import get_truncated_display_string as td
 from .utils import get_list_class_display as cld
-
+from mendeley.errors import *
 
 try:
     from . import user_config as config
@@ -27,7 +25,7 @@ if hasattr(config,'config_location'):
     config_location = config.config_location
     
     if not os.path.exists(config_location):
-        raise errors.InvalidConfig('Specified configuration path does not exist')
+        raise InvalidConfig('Specified configuration path does not exist')
     
     loader = importlib.machinery.SourceFileLoader('config', config_location)    
     config = loader.load_module()
@@ -176,7 +174,7 @@ def ensure_present_and_not_empty(obj_or_dict,name,key_or_attribute,none_is_ok=Fa
             raise InvalidConfig('"%s" in %s was found to have none value which is not allowed, please fix the config file' % (key_or_attribute,name))
     elif len(value) == 0:
         raise InvalidConfig('"%s" in %s was found to be empty and needs to be filled in, please fix the config file' % (key_or_attribute,name))
-    
+
 class User(object):
     
     def __init__(self,config_default_user):

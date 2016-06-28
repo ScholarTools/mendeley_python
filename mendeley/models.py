@@ -157,13 +157,88 @@ class Person(ResponseObject):
            'last_name: %s\n' % self.last_name
 
 
-class Annotation(object):
+class Annotation(ResponseObject):
+    """
+
+    Possible methods to add:
+    ------------------------
+    update
+    delete
+
+    Attributes
+    ----------
+    id : string
+    type : string
+    profile_id : string
+        Profile id (UUID) of the Mendeley user that added the document to
+        the system.
+
+    created : string
+    last_modified : string
+    """
+
+    object_fields = {
+        'authors': Person.initialize_array,
+        'identifiers': DocumentIdentifiers}
+
     def __init__(self, json, m):
-        import pdb
-        pdb.set_trace()
+        """
+        Parameters
+        ----------
+        json : dict
+        m : mendeley.api._APIMethods
+
+        """
+        super(Annotation, self).__init__(json)
+        self.document_id = self.__getattr__('document_id')
+        self.api = m
+        self.default_return_type = 'object'
+
+    def _null(self):
+        """
+        TODO: Ask on SO about this, is there an alternative approach?
+        It does expose tab completion in Spyder ...
+        """
+        self.id = None  #
+        self.type = None  #
+        self.created = None  #
+        self.profile_id = None  #
+        self.last_modified = None  #
+
+    @classmethod
+    def fields(cls):
+        return ['id', 'type', 'previous_id', 'created', 'text', 'profile_id',
+                'color', 'document_id', 'last_modified']
+
+    '''
+    @classmethod
+    def create(cls, json, m, params):
+        """
+        I believe this distinction was made to distinguish between instances
+        in which a set was required or instances in which by definition
+        only a single document would be returned.
+
+        This however needs to be clarified.
+        """
+        return DocumentSet(json, m)
+    '''
+
+    def __repr__(self, pv_only=False):
+        # TODO: Set this up like it looks in Mendeley
+        pv = ['profile_id: ', self.profile_id,
+              'created: ', self.created,
+              'last_modified: ', self.last_modified,
+              'id: ', self.id,
+              'type: ', self.type,
+              'title: ', td(self.title),
+              'document_id: ', self.document_id,
+              'text: ', self.text]
+        if pv_only:
+            return pv
+        else:
+            return utils.property_values_to_string(pv)
 
 
-# %%
 def academic_statuses(json, m):
     """
     The json contains a list of dictionaries but each dictionary
@@ -547,6 +622,9 @@ class Document(ResponseObject):
         return_bundle = {'total_refs':total_refs, 'all_ref_dois':all_ref_dois, 'without_dois':without_dois}
         return_bundle['all_reference_info'] = all_reference_info
         return return_bundle
+
+    def get_annotations(self):
+        pass
 
     def __repr__(self, pv_only=False):
         # TODO: Set this up like it looks in Mendeley
