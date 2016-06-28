@@ -112,21 +112,31 @@ class UserLibrary:
             document_json = self.docs.ix[index]['json']
         elif doi is not None:
 
-            #JAH: Yikes, was upper vs lower ever an issue? It seems this this
-            #would be invalid. i.e. ABC is not the same as abc
-            #Please document accordingly
+            # JAH: Yikes, was upper vs lower ever an issue? It seems this this
+            # would be invalid. i.e. ABC is not the same as abc
+            # Please document accordingly
             temp = self.docs[self.docs['doi'] == doi]
+
+            document_id = temp['json'][0]['id']
+
+            url = 'https://api.mendeley.com/documents/' + document_id
+            params = {'view' : 'all'}
+            headers = {'content_type' : 'application/vnd.mendeley-document.1+json'}
+
+
+            import pdb
+            pdb.set_trace()
             
-            #TODO: check for a match here, if not, do these other checks
-            #TODO: Eventually, once we know the rules on case sensitivity, store
-            #the DOIs accordingly and do the conversion on the input DOI            
+            # TODO: check for a match here, if not, do these other checks
+            # TODO: Eventually, once we know the rules on case sensitivity, store
+            # the DOIs accordingly and do the conversion on the input DOI
             
             temp_upper = self.docs[self.docs['doi'] == doi.upper()]
             temp_lower = self.docs[self.docs['doi'] == doi.lower()]
             if len(temp) == 0 and len(temp_upper) == 0 and len(temp_lower) == 0:
                 raise errors.DOINotFoundError("DOI not found in library")
                 
-            #TODO: Check for > 1 - throw a warning?
+            # TODO: Check for > 1 - throw a warning?
             if len(temp) !=0:
                 document_json = temp['json'][0]
             elif len(temp_upper) !=0:
