@@ -21,7 +21,7 @@ import pandas as pd
 
 # Local imports
 from .api import API
-from . import errors
+from .errors import *
 from . import models
 from . import utils
 from .optional import rr
@@ -111,38 +111,19 @@ class UserLibrary:
             
             document_json = self.docs.ix[index]['json']
         elif doi is not None:
+            # Check database for a DOI match
+            # Using .lower() to handle case sensitivity - most of the
+            # time not an issue.
 
-            # JAH: Yikes, was upper vs lower ever an issue? It seems this this
-            # would be invalid. i.e. ABC is not the same as abc
-            # Please document accordingly
-            temp = self.docs[self.docs['doi'] == doi]
+            temp = self.docs[self.docs['doi'] == doi.lower()]
 
-            document_id = temp['json'][0]['id']
+            document_json = temp.get('json')
+            if len(temp) == 0 or len(document_json) == 0:
+                raise DOINotFoundError('DOI not found in library')
 
-            url = 'https://api.mendeley.com/documents/' + document_id
-            params = {'view' : 'all'}
-            headers = {'content_type' : 'application/vnd.mendeley-document.1+json'}
+            document_json = document_json[0]
+            document_id = document_json.get('id')
 
-
-            import pdb
-            pdb.set_trace()
-            
-            # TODO: check for a match here, if not, do these other checks
-            # TODO: Eventually, once we know the rules on case sensitivity, store
-            # the DOIs accordingly and do the conversion on the input DOI
-            
-            temp_upper = self.docs[self.docs['doi'] == doi.upper()]
-            temp_lower = self.docs[self.docs['doi'] == doi.lower()]
-            if len(temp) == 0 and len(temp_upper) == 0 and len(temp_lower) == 0:
-                raise errors.DOINotFoundError("DOI not found in library")
-                
-            # TODO: Check for > 1 - throw a warning?
-            if len(temp) !=0:
-                document_json = temp['json'][0]
-            elif len(temp_upper) !=0:
-                document_json = temp_upper['json'][0]
-            elif len(temp_lower) !=0:
-                document_json = temp_lower['json'][0]
         else:
             raise Exception('Unrecognized search option')
         
@@ -168,7 +149,7 @@ class UserLibrary:
         try:
             self.get_document(doi=doi)
             return True
-        except errors.DOINotFoundError:
+        except DOINotFoundError:
             return False
 
     def add_to_library(self, doi, check_in_lib=False, add_pdf=True):
@@ -192,20 +173,25 @@ class UserLibrary:
 
         #----------------------------------------------------------------------
         # Get paper information from DOI
-        paper_info = rr.resolve_doi(doi)
+        paper_info = rr.retrieve_all_info(input=doi, input_type='doi')
+        #paper_info = rr.paper_info_from_doi(doi)
 
+        # Turn the BaseEntry object into a formatted dict for submission
+        # to the Mendeley API
         formatted_entry = self._format_doc_entry(paper_info.entry)
+
+        # Create the new document
         new_document = self.api.documents.create(formatted_entry)
 
         # Get pdf
         if add_pdf:
             try:
-                pdf_content = paper_info.publisher_interface.get_pdf_content(file_url=paper_info.pdf_link)
+                pdf_content = paper_info.publisher_interface.get_pdf_content(pdf_url=paper_info.pdf_link)
             except Exception:
-                raise errors.PDFError('PDF could not be retrieved')
+                raise PDFError('PDF could not be retrieved')
 
             if pdf_content is None:
-                raise errors.PDFError('PDF could not be retrieved')
+                raise PDFError('PDF could not be retrieved')
             else:
                 new_document.add_file({'file' : pdf_content})
         
@@ -222,20 +208,27 @@ class UserLibrary:
 
         Parameters
         ----------
-        entry : str
+        entry : BaseEntry object
+            See pypub.scrapers.base_objects.py
             Unformatted paper information, usually from PaperInfo class
 
         Returns
         -------
-        entry : str
+        entry : dict
             Paper information with proper formatting applied.
         """
-        
+
+        if not isinstance(entry, dict):
+            entry = entry.__dict__
+
         # Format author names
         authors = entry.get('authors')
         formatted_author_names = None
         if authors is not None:
-            author_names = [x.get('name') for x in authors]
+            if isinstance(authors[0], str):
+                author_names = [x for x in authors]
+            elif isinstance(authors[0], dict):
+                author_names = [x.get('name') for x in authors]
             formatted_author_names = []
 
             # Parse author names
@@ -259,25 +252,35 @@ class UserLibrary:
                 formatted_author_names.append(name_dict)
 
         # Make sure keywords are <= 50 characters
-        if entry.get('keywords') is not None:
+        kw = entry.get('keywords')
+        if kw is not None:
+            # Check if it's one long string, and split if so
+            if isinstance(kw, str):
+                kw = kw.split(', ')
             to_remove = []
-            for keyword in entry['keywords']:
+            for keyword in kw:
                 if len(keyword) > 50:
                     to_remove.append(keyword)
                     smaller_keywords = keyword.split(' ')
                     for word in smaller_keywords:
-                        entry['keywords'].append(word)
+                        kw.append(word)
             for long_word in to_remove:
-                entry['keywords'].remove(long_word)
+                kw.remove(long_word)
+        entry['keywords'] = kw
+
 
         # Get rid of alpha characters in Volume field
         vol = entry['volume']
         entry['volume'] = ''.join(c for c in vol if not c.isalpha())
 
+        doi = entry.get('doi')
+        if doi is not None:
+            doi = doi.lower()
+            entry['identifiers'] = {'doi' : doi}
+
         entry['authors'] = formatted_author_names
         entry['publisher'] = entry['publication']
         entry['type'] = 'journal'
-        entry['identifiers'] = {'doi' : entry['doi']}
 
         return entry
 
