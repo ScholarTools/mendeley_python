@@ -82,6 +82,8 @@ class ResponseObject(object):
         e.g. document.yeear <= instead of document.year
         """
         if name in self.fields():
+            if isinstance(self.json, list):
+                raise TypeError('oh no, JSON is a list...')
             value = self.json.get(name)
             
             #We don't call object construction methods on None values
