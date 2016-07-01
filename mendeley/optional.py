@@ -34,9 +34,19 @@ except ImportError:
     rr = MissingModule('The method called requires the library "reference_resolver" from the Scholar Tools Github repo')
     #TODO: Provide link to repo
     #Eventually pip the repo and specify pip is possible
-    
+
+try:
+    import database as db
+except ImportError:
+    db = MissingModule('The method called requires the library "reference_resolver" from the Scholar Tools Github repo')
+
 try:
     import pypub.publishers.pub_objects as pub_objects
 except ImportError:
     pub_objects = MissingModule('The method called requires the library "pypub" from the Scholar Tools Github repo')
+
+try:
+    from pypub.data_transform import df_to_paper_info
+except ImportError:
+    df_to_paper_info = MissingModule('The method called requires the library "pypub" from the Scholar Tools Github repo')
 

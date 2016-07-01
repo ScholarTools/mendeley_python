@@ -25,6 +25,8 @@ from .errors import *
 from . import models
 from . import utils
 from .optional import rr
+from .optional import db
+from .optional import df_to_paper_info
 
 fstr = utils.float_or_none_to_string
 cld = utils.get_list_class_display
@@ -511,6 +513,13 @@ class Sync(object):
     def verbose_print(self, msg):
         if self.verbose:
             print(msg)
+
+
+def _data_frame_to_paper_info(df_row):
+    paper_info = df_to_paper_info(df_row)
+
+    import pdb
+    pdb.set_trace()
 
 
 def _raw_to_data_frame(raw, include_json=True):

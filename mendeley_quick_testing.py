@@ -74,7 +74,7 @@ doc = temp.get_document(doi=doc_doi, return_json=True)
 
 document_id = doc.get('id')
 
-ann = m.annotations.get(document_id=document_id)
+#ann = m.annotations.get(document_id=document_id)
 
 import pdb
 pdb.set_trace()
