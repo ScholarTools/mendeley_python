@@ -3,7 +3,6 @@
 Example function calls
 """
 
-import pdb
 import string
 import random
 from mendeley import client_library

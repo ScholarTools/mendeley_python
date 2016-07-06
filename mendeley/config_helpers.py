@@ -9,9 +9,8 @@ import importlib.machinery #Python 3.3+
 #Local Imports
 #---------------------------------------------------------
 from . import errors
-from . import utils
-from .utils import get_truncated_display_string as td
-from .utils import get_list_class_display as cld
+# Can't use utils in this module - circular imports
+#from . import utils
 from mendeley.errors import *
 
 try:
@@ -132,13 +131,15 @@ class Config(object):
         if hasattr(config,'other_users'):
             self.other_users = config.other_users
 
-
+    # TODO: rewrite without using utils
+    '''
     def __repr__(self):
         pv = ['Oauth2Credentials', cld(self.Oauth2Credentials), 
               'default_user', cld(getattr(self,'default_user',None)),
                 'default_save_path',getattr(self,'default_save_path',None),
                 'other_users',cld(getattr(self,'other_users',None))]
         return utils.property_values_to_string(pv)
+    '''
 
 
 def ensure_present_and_not_empty(obj_or_dict,name,key_or_attribute,none_is_ok=False):

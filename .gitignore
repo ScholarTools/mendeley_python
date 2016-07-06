@@ -5,6 +5,8 @@
 /.idea/
 /data/
 
+*.db
+
 # Test files
 test_pdf.pdf
 test_file.html

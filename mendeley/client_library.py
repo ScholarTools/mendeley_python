@@ -25,8 +25,7 @@ from .errors import *
 from . import models
 from . import utils
 from .optional import rr
-from .optional import db
-from .optional import df_to_paper_info
+import db_interface
 
 fstr = utils.float_or_none_to_string
 cld = utils.get_list_class_display
@@ -379,6 +378,9 @@ class Sync(object):
         self.raw = [x.json for x in doc_set]
         self.docs = _raw_to_data_frame(self.raw)
 
+        for entry in self.raw:
+            db_interface.add_to_db(entry)
+
         self.full_retrieval_time = ctime() - t1
 
         if self.raw is not None:
@@ -454,6 +456,17 @@ class Sync(object):
         is_new_mask = df['created'] > newest_modified_time
         new_rows_df = df[is_new_mask]
         updated_rows_df = df[~is_new_mask]
+
+        # Log the new entries in the database
+        for x in range(len(new_rows_df)):
+            row = new_rows_df.iloc[x]
+            db_interface.add_to_db(row)
+
+        # Log the updated entries in the database
+        for x in range(len(updated_rows_df)):
+            row = updated_rows_df.iloc[x]
+            db_interface.update_db_entry(row)
+
         if len(new_rows_df) > 0:
             self.verbose_print('%d new documents found' % len(new_rows_df))
             self.docs = self.docs.append(new_rows_df)
@@ -513,13 +526,6 @@ class Sync(object):
     def verbose_print(self, msg):
         if self.verbose:
             print(msg)
-
-
-def _data_frame_to_paper_info(df_row):
-    paper_info = df_to_paper_info(df_row)
-
-    import pdb
-    pdb.set_trace()
 
 
 def _raw_to_data_frame(raw, include_json=True):

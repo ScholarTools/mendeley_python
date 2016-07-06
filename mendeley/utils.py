@@ -116,7 +116,7 @@ def get_save_root(sub_directories_list, create_folder_if_no_exist=True):
         # is a bit quirky with Python 2 vs 3
         sub_directories_list = [sub_directories_list]
 
-    if hasattr(config, 'default_save_path'):
+    if getattr(config, 'default_save_path', None) is not None:
         root_path = config.default_save_path
         if not os.path.isdir(root_path):
             raise Exception('Specified default save path does not exist')
