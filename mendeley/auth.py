@@ -566,10 +566,19 @@ class UserTokenRetriever(object):
             'password' : self.user_info.password}
         r2 = self.session.post(r.url,data=payload2,allow_redirects=False)    
         
-        if r2.status_code != requests.codes.FOUND:
+        import pdb
+                
+        
+        if r2.status_code != 302:
+            #TODO: Look for 200 with Incorrect details
+            #<p class="alert alert-error">\n    Incorrect details. <a target="_blank" href="http://www.mendeley.com/forgot/">Forgot your password?</a>
+            
             #1) I've gotten a 200 ok with "Incorrect Details" which just
             #turned out that I needed to login to Mendeley first to finish
             #registration
+            print(self.user_info)
+            print(r2.status_code)
+            print(r2.text)
             raise Exception("Auto-submission of the user's credentials failed")  
         
         #STEP 3: Grab code from redirect URL

@@ -6,7 +6,7 @@ This module is meant to implement all functions described at:
     #
     #   Shows request parameters a bit more clearly    
     
-    #2) https://api.mendeley.com/apidocs/apis
+    #2) https://api.mendeley.com/apidocs/
     #
     #   Testing interface, nicer organization
     

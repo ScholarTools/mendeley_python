@@ -3,7 +3,7 @@
 #TODO: break out display utils to another module
 """
 
-from . import user_config
+from . import config
 import os
 import inspect
 
@@ -116,8 +116,8 @@ def get_save_root(sub_directories_list, create_folder_if_no_exist=True):
         # is a bit quirky with Python 2 vs 3
         sub_directories_list = [sub_directories_list]
 
-    if hasattr(user_config, 'default_save_path'):
-        root_path = user_config.default_save_path
+    if hasattr(config, 'default_save_path'):
+        root_path = config.default_save_path
         if not os.path.isdir(root_path):
             raise Exception('Specified default save path does not exist')
     else:
