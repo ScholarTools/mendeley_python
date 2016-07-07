@@ -11,11 +11,11 @@ Features:
 """
 
 #Standard Library Imports
+import pickle
 from datetime import datetime
 from timeit import default_timer as ctime
-import os
-import pickle
 
+import os
 #Third Party Imports
 import pandas as pd
 
@@ -25,7 +25,7 @@ from .errors import *
 from . import models
 from . import utils
 from .optional import rr
-import db_interface
+from mendeley import db_interface
 
 fstr = utils.float_or_none_to_string
 cld = utils.get_list_class_display
@@ -396,25 +396,25 @@ class Sync(object):
 
         start_sync_time = ctime()
 
-        #Let's work with everything as a dataframe
+        # Let's work with everything as a dataframe
         self.docs = _raw_to_data_frame(self.raw)
 
         #self.raw = self.docs['json'].tolist()
 
-        #Determine the document that was updated most recently. We'll ask for
-        #everything that changed after that time. This avoids time sync
-        #issues with the server and the local computer since everything
-        #is done relative to the timestamps from the server.
+        # Determine the document that was updated most recently. We'll ask for
+        # everything that changed after that time. This avoids time sync
+        # issues with the server and the local computer since everything
+        # is done relative to the timestamps from the server.
         newest_modified_time = self.docs['last_modified'].max()
         self.newest_modified_time = newest_modified_time
 
-        #Remove old ids
+        # Remove old ids
         #------------------------------------
         self.get_trash_ids()
         self.get_deleted_ids(newest_modified_time)
         self.remove_old_ids()
 
-        #Process new and updated documents
+        # Process new and updated documents
         # ------------------------------------
         updates_and_new_entries_start_time = ctime()
         self.verbose_print('Checking for modified or new documents')
@@ -430,11 +430,11 @@ class Sync(object):
 
     def get_updates_and_new_entries(self, newest_modified_time):
         """        
-        #3) check modified since - add/update as necessary
+        # 3) check modified since - add/update as necessary
         #-------------------------------------------------
-        #I think for now to keep things simple we'll relate everything
-        #to the newest last modified value, rather than worrying about
-        #mismatches in time between the client and the server
+        # I think for now to keep things simple we'll relate everything
+        # to the newest last modified value, rather than worrying about
+        # mismatches in time between the client and the server
         """
 
         start_modified_time = ctime()

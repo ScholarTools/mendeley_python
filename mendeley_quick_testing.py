@@ -7,6 +7,7 @@ import string
 import random
 from mendeley import client_library
 from mendeley import api
+from database import db_logging as db
 
 def random_entry():
     d = dict()
@@ -69,11 +70,15 @@ m.documents.create(ae)
 
 # Testing the annotation retrieval function
 doc_doi = '10.1016/S0304-3991(00)00076-0'
-doc = temp.get_document(doi=doc_doi, return_json=True)
+#doc = temp.get_document(doi=doc_doi, return_json=True)
 
-document_id = doc.get('id')
+#document_id = doc.get('id')
 
-#ann = m.annotations.get(document_id=document_id)
+
+db_doi = '10.1111/j.1748-1716.1980.tb06578.x'
+db_doc = db.get_saved_info(db_doi)
+m_doc = temp.get_document(db_doi)
+
 
 import pdb
 pdb.set_trace()

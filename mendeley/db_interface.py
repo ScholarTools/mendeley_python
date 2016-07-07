@@ -15,19 +15,67 @@ def add_to_db(info):
 
 
 def update_db_entry(info):
-    paper_info = _make_paper_info(info)
-    table_obj = db.create_entry_table_obj(paper_info=paper_info)
+    new_info = _make_paper_info(info)
 
     # Get the saved information that exists for a given entry
-    saved_obj = db.get_saved_entry_obj(table_obj)
+    saved_info = db.get_saved_entry_obj(new_info)
 
-    # TODO: Compare the new updated entry with the saved version.
-    # Can probably use the .fields attribute of the MainPaperInfo
-    # class to only compare the values corresponding to those keys.
-    # Need to turn paper_info into a dict or series of dicts.
-    # Make a similar .fields attribute for Authors class.
-    import pdb
-    pdb.set_trace()
+    comparison_fields = saved_info.fields
+    author_fields = saved_info.author_fields
+    main_paper_id = saved_info.main_paper_id
+
+    # Turn the new information into a combined dict
+    new_full_dict = new_info.__dict__.copy()
+    new_full_dict.update(new_info.entry.__dict__)
+    if new_full_dict.get('authors') is not None:
+        new_full_dict['authors'] = [author.__dict__ for author in new_full_dict['authors']]
+
+    # Turn saved information into a combined dict
+    saved_full_dict = saved_info.__dict__.copy()
+    saved_full_dict.update(saved_info.entry.__dict__)
+    if saved_full_dict.get('authors') is not None:
+        saved_full_dict['authors'] = [author.__dict__ for author in saved_full_dict['authors']]
+
+    updating_fields = []
+    updating_values = []
+
+    # Determine which fields have changed and need to be updated
+    for field in comparison_fields:
+        saved = saved_full_dict.get(field)
+        new = new_full_dict.get(field)
+        if saved == new:
+            continue
+
+        elif field == 'authors':
+            # Each author is its own row in a separate Authors table.
+            # This code replaces the saved bank of authors for a paper
+            # with the new information. This covers creation and deletion
+            # of authors, as well as updates to specific fields.
+            for author in new:
+                if author not in saved:
+                    db.add_author(author, main_paper_id=main_paper_id)
+            for author in saved:
+                if author not in new:
+                    db.delete_author(author, main_paper_id=main_paper_id)
+
+        else:
+            updating_fields.append(field)
+            if saved is not None:
+                updating_values.append(saved)
+            else:
+                updating_values.append(new)
+
+    # Make the updating requests
+    db.update_general_fields(new_full_dict.get('title'), updating_field=updating_fields,
+                             updating_value=updating_values, filter_by_title=True)
+
+
+def add_reference(ref, main_doi, main_title):
+    db.add_reference(ref=ref, main_paper_doi=main_doi, main_paper_title=main_title)
+
+
+def update_reference_field(identifying_value, updating_field, updating_value, filter_by_title=False, filter_by_doi=False):
+    db.update_reference_field(identifying_value, updating_field, updating_value, filter_by_title, filter_by_doi)
 
 
 def _make_paper_info(info):
@@ -59,6 +107,12 @@ def _mendeley_df_to_paper_info(df_row):
     entry.notes = df_dict.get('notes')
     entry.pubmed_id = df_dict.get('pmid')
     entry.issn = df_dict.get('issn')
+
+    # Formatting
+    if entry.year is not None:
+        entry.year = str(entry.year)
+    if entry.keywords is not None and isinstance(entry.keywords, list):
+        entry.keywords = ', '.join(entry.keywords)
 
     entry.authors = []
     json_authors = df_dict.get('authors')
