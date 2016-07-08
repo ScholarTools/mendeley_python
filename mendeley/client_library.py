@@ -153,7 +153,7 @@ class UserLibrary:
         except DOINotFoundError:
             return False
 
-    def add_to_library(self, doi, check_in_lib=False, add_pdf=True):
+    def add_to_library(self, doi, check_in_lib=False, add_pdf=True, skip_scopus=False):
         """
         
         Parameters
@@ -174,8 +174,10 @@ class UserLibrary:
 
         #----------------------------------------------------------------------
         # Get paper information from DOI
-        paper_info = rr.retrieve_all_info(input=doi, input_type='doi')
-        #paper_info = rr.paper_info_from_doi(doi)
+        if not skip_scopus:
+            paper_info = rr.retrieve_all_info(input=doi, input_type='doi')
+        else:
+            paper_info = rr.paper_info_from_doi(doi)
 
         # Turn the BaseEntry object into a formatted dict for submission
         # to the Mendeley API
@@ -187,6 +189,8 @@ class UserLibrary:
         # Get pdf
         if add_pdf:
             try:
+                if paper_info.publisher_interface is None:
+                    paper_info.make_interface_object()
                 pdf_content = paper_info.publisher_interface.get_pdf_content(pdf_url=paper_info.pdf_link)
             except Exception:
                 raise PDFError('PDF could not be retrieved')
@@ -230,6 +234,8 @@ class UserLibrary:
                 author_names = [x for x in authors]
             elif isinstance(authors[0], dict):
                 author_names = [x.get('name') for x in authors]
+            else:
+                author_names = [x.name for x in authors]
             formatted_author_names = []
 
             # Parse author names
@@ -244,6 +250,10 @@ class UserLibrary:
                     name_dict['last_name'] = parts[2]
                 # If format is "lastname, firstname"
                 elif ',' in name:
+                    name_dict['first_name'] = parts[1]
+                    name_dict['last_name'] = parts[0]
+                # If format is "lastname firstinitial"
+                elif len(parts) == 2 and '.' in parts[1]:
                     name_dict['first_name'] = parts[1]
                     name_dict['last_name'] = parts[0]
                 # Otherwise assume format is "firstname lastname" or "firstinitial. lastname"
@@ -271,8 +281,16 @@ class UserLibrary:
 
 
         # Get rid of alpha characters in Volume field
-        vol = entry['volume']
-        entry['volume'] = ''.join(c for c in vol if not c.isalpha())
+        vol = entry.get('volume')
+        if vol is not None:
+            entry['volume'] = ''.join(c for c in vol if not c.isalpha())
+
+        # Get rid of alpha characters in Year field
+        year = entry.get('year')
+        if year is not None:
+            entry['year'] = ''.join(c for c in year if not c.isalpha())
+            if entry['year'] == '':
+                entry['year'] = None
 
         doi = entry.get('doi')
         if doi is not None:
