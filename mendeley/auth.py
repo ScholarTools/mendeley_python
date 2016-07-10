@@ -123,9 +123,11 @@ class _Authorization(AuthBase):
         .gitignore
         """
         
-        if config.default_save_path is not None:
-            #TODO: Ensure that this folder exists, and create if not
-            return config.default_save_path
+        if config.default_save_path is not None:        
+            save_folder_path = os.path.join(config.default_save_path,'credentials')
+            if create_folder_if_no_exist and not os.path.exists(save_folder_path):
+                os.makedirs(save_folder_path)
+            return save_folder_path
         else:
             return utils.get_save_root(['credentials'],create_folder_if_no_exist)
 
