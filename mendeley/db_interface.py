@@ -119,9 +119,12 @@ def _mendeley_df_to_paper_info(df_row):
     if json_authors is not None:
         for auth in json_authors:
             author = obj.BaseAuthor()
-            name = ' '.join([auth.get('first_name'), auth.get('last_name')])
+            #TODO: This creates extra space if the first or last name is missing
+            name = ' '.join([auth.get('first_name',''), auth.get('last_name','')])
             author.name = name
             entry.authors.append(author)
+
+
 
     ids = df_dict.get('identifiers')
     if ids is not None:

@@ -5,7 +5,7 @@ This file contains classes that are instantiated following a request that is
 made to the API.
 
 For Example:
-
+TODO: finish this 
 
 
 
@@ -316,17 +316,22 @@ class DocumentSet(object):
         ----------
         json : dict
         m : mendeley.api._APIMethods
-        
+        params: dict
+            'fcn' - function handle to the type of document to create
+            'view' - type of document info to return
+            'limit' - maximum # of documents to expect
         
         """
         # TODO: build in next and prev support
         self.links = m.last_response.links
         self.api = m
         self.response_params = params
+        self.verbose = params['verbose']
+        self.page_id = params['page_id']
 
         fcn = params['fcn']
 
-        import pdb
+        #import pdb
         #pdb.set_trace()
 
         # TODO: Figure out how to support lazy loading
@@ -369,12 +374,18 @@ class DocumentSet(object):
     # to Page in mendeley.pagination
 
     def first_page(self):
+        #TODO: Implement this function
         pass
 
     def next_page(self):
         if 'next' not in self.links:
             return None
         else:
+            page_id = self.page_id + 1
+            if self.verbose:
+                ('Requesting more documents from Mendeley (page #%d)' % page_id)
+                
+            self.response_params['page_id'] = page_id
             next_url = self.links['next']['url']
             return self.api.make_get_request(next_url, DocumentSet, None, self.response_params)
 
