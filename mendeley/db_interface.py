@@ -161,7 +161,7 @@ def _mendeley_json_to_paper_info(json):
     if json_authors is not None:
         for auth in json_authors:
             author = obj.BaseAuthor()
-            name = ' '.join([auth.get('first_name'), auth.get('last_name')])
+            name = ' '.join([auth.get('first_name',''), auth.get('last_name','')])
             author.name = name
             entry.authors.append(author)
 
