@@ -14,8 +14,8 @@ Features:
 import pickle
 from datetime import datetime
 from timeit import default_timer as ctime
-
 import os
+
 #Third Party Imports
 import pandas as pd
 
@@ -25,7 +25,7 @@ from .errors import *
 from . import models
 from . import utils
 from .optional import rr
-from mendeley import db_interface
+from . import db_interface
 
 fstr = utils.float_or_none_to_string
 cld = utils.get_list_class_display
@@ -49,7 +49,7 @@ class UserLibrary:
     FILE_VERSION = 1
 
     def __init__(self, user_name=None, verbose=False):
-        self.api = API(user_name=user_name)
+        self.api = API(user_name=user_name,verbose=verbose)
         self.user_name = self.api.user_name
         self.verbose = verbose
 
@@ -553,7 +553,17 @@ def _raw_to_data_frame(raw, include_json=True):
     # Note that I'm not using the local attribute
     # as we can then use this for updating new information
     df = pd.DataFrame(raw)
+    
+    #dtype=str   => doesn't work, wtf
+    #dtype={'identifiers':object}    => doesn't work, wtf
+    
+    #TODO: This is a complete mess with type inference ...    
+    
+    #TODO: identifiers may not exist :/
 
+    #https://github.com/pydata/pandas/issues/1972
+    df['identifiers'] = df['identifiers'].where(pd.notnull(df['identifiers']),None)    
+    
     # len(df) == 0 means that no documents were found.
     # Further operations on df would fail.
     if len(df) == 0:

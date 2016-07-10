@@ -63,6 +63,7 @@ import requests
 from . import auth
 from . import models
 from . import utils
+
 from .errors import *
 
 PY2 = int(sys.version[0]) == 2
@@ -94,19 +95,19 @@ document_fcns = {None: models.Document,
 #==============================================================================
 class API(object):
     """
-    This is a shared superclass for both the public and private API classes.
     
     Attributes
     ----------
     default_return_type : {'object','json','raw','response'}
         This is the default type to return from methods.
+    verbose : bool (default False)
         
     last_response : 
     last_params : 
         
     """
 
-    def __init__(self, user_name=None):
+    def __init__(self, user_name=None, verbose=False):
         """
         Parameters
         ----------
@@ -115,6 +116,8 @@ class API(object):
             - 'public' : then the public API is accessed
         
         """
+
+        self.verbose=verbose
 
         self.s = requests.Session()
         if user_name == 'public':
@@ -327,6 +330,43 @@ class API(object):
 
         return self.make_get_request(url, models.DocumentSet.create, kwargs, response_params)
 
+class Annotations(object):
+    
+    def __init__(self, parent):
+        self.parent = parent
+
+    def get(self, **kwargs):
+        """
+        https://api.mendeley.com/apidocs#!/annotations/getAnnotations
+        """
+
+        url = BASE_URL + '/annotations'
+
+        document_id = kwargs.get('document_id')
+        if document_id is None:
+            raise LookupError('Must enter a document ID to retrieve annotations.')
+
+        #TODO: Why is kwargs not being used?
+        params = dict()
+        params['document_id'] = document_id
+        params['include_trashed'] = False
+
+        headers = {'Content-Type' : 'application/vnd.mendeley-annotation.1+json'}
+
+        return self.parent.make_get_request(url, models.Annotation, params, headers=headers)
+
+    def create(self, **kwargs):
+        """
+        https://api.mendeley.com/apidocs/docs#!/annotations/createAnnotation
+        """
+        pass
+
+    def delete(self, **kwargs):
+        url = BASE_URL + '/annotations'
+
+
+        headers = {'Content-Type' : 'application/vnd.mendeley-folder.1+json'}
+        pass
 
 class Definitions(object):
     """
@@ -378,39 +418,246 @@ class Definitions(object):
 
         return self.parent.make_get_request(url, models.document_types, kwargs)
 
-
-class Annotations(object):
+class Documents(object):
     def __init__(self, parent):
         self.parent = parent
 
     def get(self, **kwargs):
-        # https://api.mendeley.com/apidocs#!/annotations/getAnnotations
+        """
+        https://api.mendeley.com/apidocs#!/documents/getDocuments
+        
+        Parameters
+        ----------
+        id : 
+        group_id : string
+            The id of the group that the document belongs to. If not supplied 
+            returns users documents.
+        modified_since : string or datetime
+            Returns only documents modified since this timestamp. Should be 
+            supplied in ISO 8601 format.
+        deleted_since : string or datetime
+            Returns only documents deleted since this timestamp. Should be 
+            supplied in ISO 8601 format.
+        profile_id : string
+            The id of the profile that the document belongs to, that does not 
+            belong to any group. If not supplied returns users documents.
+        authored :
+            TODO
+        starred : 
+        limit : string or int (default 20)
+            Largest allowable value is 500. This is really the page limit since
+            the iterator will allow exceeding this value.
+        order :
+            - 'asc' - sort the field in ascending order
+            ' 'desc' - sort the field in descending order            
+        view : 
+            - 'bib'
+            - 'client'
+            - 'tags' : returns user's tags
+            - 'patent'
+            - 'all'
+        sort : string
+            Field to sort on. Avaiable options:
+            - 'created'
+            - 'last_modified'
+            - 'title'
 
-        url = BASE_URL + '/annotations'
+        Examples
+        --------
+        from mendeley import API
+        m = API()
+        d = m.documents.get(limit=1)
+        
+        """
 
-        document_id = kwargs.get('document_id')
-        if document_id is None:
-            raise LookupError('Must enter a document ID to retrieve annotations.')
+        url = BASE_URL + '/documents'
+        if 'id' in kwargs:
+            id = kwargs.pop('id')
+            url += '/%s/' % id
+            
+        
 
-        params = dict()
-        params['document_id'] = document_id
-        params['include_trashed'] = False
+        convert_datetime_to_string(kwargs, 'modified_since')
+        convert_datetime_to_string(kwargs, 'deleted_since')
 
-        headers = {'Content-Type' : 'application/vnd.mendeley-annotation.1+json'}
+        view = kwargs.get('view')
 
-        return self.parent.make_get_request(url, models.Annotation, params, headers=headers)
+        if 'deleted_since' in kwargs:
+            view = 'deleted'
 
-    def create(self, **kwargs):
+        limit = kwargs.get('limit', 20)
+        response_params = {'fcn': document_fcns[view], 'view': view, 'limit': limit, 'page_id':0}
+
+        verbose = _process_verbose(self.parent,kwargs,response_params)
+        if verbose:
+            print("Requesting up to %d documents from Mendeley with params: %s" % (limit, kwargs))
+
+        return self.parent.make_get_request(url, models.DocumentSet.create, kwargs, response_params)
+
+    def get_single(self, **kwargs):
+        """
+        https://api.mendeley.com/apidocs#!/documents/getDocuments
+
+        Parameters
+        ----------
+        id :
+        group_id : string
+            The id of the group that the document belongs to. If not supplied
+            returns users documents.
+        modified_since : string or datetime
+            Returns only documents modified since this timestamp. Should be
+            supplied in ISO 8601 format.
+        deleted_since : string or datetime
+            Returns only documents deleted since this timestamp. Should be
+            supplied in ISO 8601 format.
+        profile_id : string
+            The id of the profile that the document belongs to, that does not
+            belong to any group. If not supplied returns users documents.
+        authored :
+            TODO
+        starred :
+        limit : string or int (default 20)
+            Largest allowable value is 500. This is really the page limit since
+            the iterator will allow exceeding this value.
+        order :
+            - 'asc' - sort the field in ascending order
+            ' 'desc' - sort the field in descending order
+        view :
+            - 'bib'
+            - 'client'
+            - 'tags' : returns user's tags
+            - 'patent'
+            - 'all'
+        sort : string
+            Field to sort on. Avaiable options:
+            - 'created'
+            - 'last_modified'
+            - 'title'
+
+        Examples
+        --------
+        from mendeley import API
+        m = API()
+        d = m.documents.get(limit=1)
+
+        """
+
+        url = BASE_URL + '/documents'
+        if 'id' in kwargs:
+            id = kwargs.pop('id')
+            url += '/%s/' % id
+
+        convert_datetime_to_string(kwargs, 'modified_since')
+        convert_datetime_to_string(kwargs, 'deleted_since')
+
+        view = kwargs.get('view')
+
+        if 'deleted_since' in kwargs:
+            view = 'deleted'
+
+        limit = kwargs.get('limit', 20)
+        response_params = {'fcn': document_fcns[view], 'view': view, 'limit': limit}
+
+        return self.parent.make_get_request(url, models.DocumentSet.create, kwargs, response_params)
+
+    def deleted_files(self, **kwargs):
+        """
+        Parameters
+        ----------
+        since
+        group_id
+        
+        
+        """
+        convert_datetime_to_string(kwargs, 'since')
+
+        url = BASE_URL + '/deleted_documents'
+        return self.parent.make_get_request(url, models.deleted_document_ids, kwargs)
+
+    def create(self, doc_data, **kwargs):
+        """
+        https://api.mendeley.com/apidocs#!/documents/createDocument
+
+        Parameters
+        ----------
+        doc_data : dict
+            'title' and 'type' fields are required. Example types include:
+            'journal' and 'book'. All types can be found at:
+                api.definitions.document_types()
+            
+        TODO: Let's create a better interface for creating these values        
+        
+        Example
+        -------
+        m = API()
+        data = {"title": "Motor Planning", "type": "journal", "identifiers": {"doi": "10.1177/1073858414541484"}}
+        new_doc = m.documents.create(data)
+        """
+
+        
+
+        url = BASE_URL + '/documents'
+
+        headers = dict()
+        headers['Content-Type'] = 'application/vnd.mendeley-document.1+json'
+
+        verbose = _process_verbose(self.parent,kwargs,None)
+        
+        if verbose:
+            pass
+
+
+        return self.parent.make_post_request(url, models.Document, doc_data, headers=headers)
+
+
+    def create_from_file(self, file_path):
+        """
+
+    
+
+        https://api.mendeley.com/apidocs#!/document-from-file/createDocumentFromFileUpload
+        
+        TODO: We might want some control over the naming
+        TODO: Support retrieval from another website
+        
+        """
+        filename = basename(file_path)
+        headers = {
+            'content-disposition': 'attachment; filename=%s' % filename,
+            'content-type': mimetypes.guess_type(filename)[0]}
+
+        # TODO: This needs futher work
         pass
 
-    def delete(self, **kwargs):
-        url = BASE_URL + '/annotations'
-
-
-        headers = {'Content-Type' : 'application/vnd.mendeley-folder.1+json'}
+    def delete(self):
+        """
+        https://api.mendeley.com/apidocs#!/documents/deleteDocument
+        """
         pass
+
+    def update(self, doc_id, new_data):
+        """
+        https://api.mendeley.com/apidocs#!/documents/updateDocument
+        """
+        url = BASE_URL + '/documents/' + doc_id
+
+        headers = dict()
+        headers['Content-Type'] = 'application/vnd.mendeley-document.1+json'
+
+        return self.parent.make_patch_request(url, models.Document, new_data, headers=headers)
+
+    def move_to_trash(self, doc_id):
+
+        url = BASE_URL + '/documents/' + doc_id + '/trash'
+
+        headers = dict()
+        headers['Content-Type'] = 'application/vnd.mendeley-document.1+json'
+
+        resp =  self.parent.s.post(url, headers=headers, auth = self.parent.access_token)
+        return
 
 class Files(object):
+    
     def __init__(self, parent):
         self.parent = parent
 
@@ -537,7 +784,6 @@ class Files(object):
         # TODO: make this work
         pass
 
-
 class Folders(object):
     def __init__(self, parent):
         self.parent = parent
@@ -555,12 +801,48 @@ class Folders(object):
         return self.parent.make_post_request(url, models.Folder, params, headers=headers)
 
 
+class MetaData(object):
+    # https://api.mendeley.com/apidocs#!/metadata/getDocumentIdByMetadata
+    pass
+
+
+class Profiles(object):
+    
+    def __init__(self,parent):
+        self.parent = parent
+        
+        #TODO: If public, provide no "me" method
+        
+    def get(self, **kwargs):
+        """
+        https://api.mendeley.com/apidocs/docs#!/profiles/getProfiles
+        https://api.mendeley.com/apidocs/docs#!/profiles/get
+        
+        """
+        pass
+    
+    def me(self):
+        """
+        https://api.mendeley.com/apidocs/docs#!/profiles/getProfileForLoggedInUser
+        """
+        pass
+    
+    #def update_my_profile()   => Let's implement this in the profile model
+    
+
+
 class Trash(object):
     def __init__(self, parent):
         self.parent = parent
 
     def get(self, **kwargs):
-        """        
+        """       
+        
+        Online Documentation
+        --------------------
+        https://api.mendeley.com/apidocs/docs#!/trash/getDeletedDocuments        
+        https://api.mendeley.com/apidocs/docs#!/trash/getDocument        
+        
         Parameters
         ----------
         id : 
@@ -597,348 +879,52 @@ class Trash(object):
         view = kwargs.get('view')
 
         limit = kwargs.get('limit', 20)
-        response_params = {'fcn': document_fcns[view], 'view': view, 'limit': limit}
+        response_params = {'fcn': document_fcns[view], 'view': view, 'limit': limit, 'page_id':0}
 
-        # TODO: When returning deleted_since, the format changes and the fcn
-        # called should change
+        verbose = _process_verbose(self.parent,kwargs,response_params)
 
-        return self.parent.make_get_request(url, models.DocumentSet.create, kwargs, response_params)
-
-
-class Documents(object):
-    def __init__(self, parent):
-        self.parent = parent
-
-    def get(self, **kwargs):
-        """
-        https://api.mendeley.com/apidocs#!/documents/getDocuments
-        
-        Parameters
-        ----------
-        id : 
-        group_id : string
-            The id of the group that the document belongs to. If not supplied 
-            returns users documents.
-        modified_since : string or datetime
-            Returns only documents modified since this timestamp. Should be 
-            supplied in ISO 8601 format.
-        deleted_since : string or datetime
-            Returns only documents deleted since this timestamp. Should be 
-            supplied in ISO 8601 format.
-        profile_id : string
-            The id of the profile that the document belongs to, that does not 
-            belong to any group. If not supplied returns users documents.
-        authored :
-            TODO
-        starred : 
-        limit : string or int (default 20)
-            Largest allowable value is 500. This is really the page limit since
-            the iterator will allow exceeding this value.
-        order :
-            - 'asc' - sort the field in ascending order
-            ' 'desc' - sort the field in descending order            
-        view : 
-            - 'bib'
-            - 'client'
-            - 'tags' : returns user's tags
-            - 'patent'
-            - 'all'
-        sort : string
-            Field to sort on. Avaiable options:
-            - 'created'
-            - 'last_modified'
-            - 'title'
-
-        Examples
-        --------
-        from mendeley import API
-        m = API()
-        d = m.documents.get(limit=1)
-        
-        """
-
-        url = BASE_URL + '/documents'
-        if 'id' in kwargs:
-            id = kwargs.pop('id')
-            url += '/%s/' % id
-
-        convert_datetime_to_string(kwargs, 'modified_since')
-        convert_datetime_to_string(kwargs, 'deleted_since')
-
-        view = kwargs.get('view')
-
-        if 'deleted_since' in kwargs:
-            view = 'deleted'
-
-        limit = kwargs.get('limit', 20)
-        response_params = {'fcn': document_fcns[view], 'view': view, 'limit': limit}
-
-        return self.parent.make_get_request(url, models.DocumentSet.create, kwargs, response_params)
-
-    def get_single(self, **kwargs):
-        """
-        https://api.mendeley.com/apidocs#!/documents/getDocuments
-
-        Parameters
-        ----------
-        id :
-        group_id : string
-            The id of the group that the document belongs to. If not supplied
-            returns users documents.
-        modified_since : string or datetime
-            Returns only documents modified since this timestamp. Should be
-            supplied in ISO 8601 format.
-        deleted_since : string or datetime
-            Returns only documents deleted since this timestamp. Should be
-            supplied in ISO 8601 format.
-        profile_id : string
-            The id of the profile that the document belongs to, that does not
-            belong to any group. If not supplied returns users documents.
-        authored :
-            TODO
-        starred :
-        limit : string or int (default 20)
-            Largest allowable value is 500. This is really the page limit since
-            the iterator will allow exceeding this value.
-        order :
-            - 'asc' - sort the field in ascending order
-            ' 'desc' - sort the field in descending order
-        view :
-            - 'bib'
-            - 'client'
-            - 'tags' : returns user's tags
-            - 'patent'
-            - 'all'
-        sort : string
-            Field to sort on. Avaiable options:
-            - 'created'
-            - 'last_modified'
-            - 'title'
-
-        Examples
-        --------
-        from mendeley import API
-        m = API()
-        d = m.documents.get(limit=1)
-
-        """
-
-        url = BASE_URL + '/documents'
-        if 'id' in kwargs:
-            id = kwargs.pop('id')
-            url += '/%s/' % id
-
-        convert_datetime_to_string(kwargs, 'modified_since')
-        convert_datetime_to_string(kwargs, 'deleted_since')
-
-        view = kwargs.get('view')
-
-        if 'deleted_since' in kwargs:
-            view = 'deleted'
-
-        limit = kwargs.get('limit', 20)
-        response_params = {'fcn': document_fcns[view], 'view': view, 'limit': limit}
-
-        return self.parent.make_get_request(url, models.DocumentSet.create, kwargs, response_params)
-
-    def deleted_files(self, **kwargs):
-        """
-        Parameters
-        ----------
-        since
-        group_id
-        
-        
-        """
-        convert_datetime_to_string(kwargs, 'since')
-
-        url = BASE_URL + '/deleted_documents'
-        return self.parent.make_get_request(url, models.deleted_document_ids, kwargs)
-
-    def create(self, doc_data):
-        """
-        https://api.mendeley.com/apidocs#!/documents/createDocument
-
-        Request URL: https://api.mendeley.com/documents
-
-        Parameters
-        ----------
-        body : str? dict?
-            Enter values for the identifying dict probably?
-
-        Location of DOI in dict:
-            'identifiers' key has value which is its own dict.
-                Within that dict, DOI has key 'doi'.
-
-        From entering {"identifiers": {"doi": "10.1177/1073858414541484"}}
-        as input on the interactive "try it out" Mendeley API implementation,
-        it looks like "title" and "type" are required fields.
-
-        "title" = article title
-        "type" = 'journal', 'book', etc. Not data types.
-
-        Ex: {"title": "Motor Planning", "type": "journal", "identifiers": {"doi": "10.1177/1073858414541484"}}
-
-        """
-
-        url = BASE_URL + '/documents'
-
-        headers = dict()
-        headers['Content-Type'] = 'application/vnd.mendeley-document.1+json'
-
-        return self.parent.make_post_request(url, models.Document, doc_data, headers=headers)
-
-
-    def create_from_file(self, file_path):
-        """
-        TODO: We might want some control over the naming
-        TODO: Support retrieval from another website
-
-        https://api.mendeley.com/apidocs#!/document-from-file/createDocumentFromFileUpload
-        
-        """
-        filename = basename(file_path)
-        headers = {
-            'content-disposition': 'attachment; filename=%s' % filename,
-            'content-type': mimetypes.guess_type(filename)[0]}
-
-        # TODO: This needs futher work
-        pass
-
-    def delete(self):
-        """
-        https://api.mendeley.com/apidocs#!/documents/deleteDocument
-        """
-        pass
-
-    def update(self, doc_id, new_data):
-        """
-        https://api.mendeley.com/apidocs#!/documents/updateDocument
-        """
-        url = BASE_URL + '/documents/' + doc_id
-
-        headers = dict()
-        headers['Content-Type'] = 'application/vnd.mendeley-document.1+json'
-
-        return self.parent.make_patch_request(url, models.Document, new_data, headers=headers)
-
-    def move_to_trash(self, doc_id):
-
-        url = BASE_URL + '/documents/' + doc_id + '/trash'
-
-        headers = dict()
-        headers['Content-Type'] = 'application/vnd.mendeley-document.1+json'
-
-        resp =  self.parent.s.post(url, headers=headers, auth = self.parent.access_token)
-        return
-
-
-class MetaData(object):
-    # https://api.mendeley.com/apidocs#!/metadata/getDocumentIdByMetadata
-    pass
-
-
-class UserMethods(API):
-    """
-    This class exposes API calls that are specific to a user.
-        
-    Example:
-    --------
-    #TODO: Explain how to get user credentials
-    
-    #The example below assumes the user credentials have already been acquired
-    #and thata default user is specified in the configuration file.
-    
-    from mendeley import api
-    um = api.UserMethods()
-    lib_ids = um.docs_get_library_ids(items=100)
-    
-    """
-
-    def profile_get_info(self, profile_id='me'):
-        """
-        
-        TODO: This may no longer be specific to the user. We should
-        write 2 methods, 1 for public and 1 for user
-        
-        Returns information about a user.
-        
-        http://dev.mendeley.com/methods/#profiles
-        
-        Parameters
-        ----------
-        profile_id : string (default 'me')
-            The string 'me' can be used to request information about the
-            user whose access token we are using. A numeric value can be used
-            to get someone else's contact info.        
-        """
-
-        url = BASE_URL + '/profiles/' + (profile_id)
-
-        params = {}
-
-        return self.make_get_request(url, models.ProfileInfo, params)
-
-    def docs_get_details(self, **kwargs):
-        """
-        
-        Parameters
-        ----------
-        view
-            - 'bib'
-            - 'client'
-            - 'tags'
-            - 'patent'
-            - 'all'
-        profile_id : string
-            The id of the profile that the document belongs to, that does not 
-            belong to any group. If not supplied returns users documents.
-        group_id : string
-            The id of the group that the document belongs to. If not supplied 
-            returns users documents.
-        modified_since : string
-            Returns only documents modified since this timestamp. Should be 
-            supplied in ISO 8601 format.
-        deleted_since : string
-            Returns only documents deleted since this timestamp. Should be 
-            supplied in ISO 8601 format.
-        limit : string or int (default 20)
-            Largest allowable value is 500
-        order :
-            - 'asc' - sort the field in ascending order
-            ' 'desc' - sort the field in descending order
-        sort : string
-            Field to sort on. Avaiable options:
-            - 'created'
-            - 'last_modified'
-            - 'title'
+        if verbose:
+            print("Requesting up to %d trash documents from Mendeley with params: %s" % (limit, kwargs))            
             
-        Examples
-        --------
-        from mendeley import api as mapi
-        um  = mapi.UserMethods()
-        
-        1) No options
-        docs = um.docs_get_details()
+        return self.parent.make_get_request(url, models.DocumentSet.create, kwargs, response_params)
 
-
-        
-        """
-        # TODO: Add on more usage examples
-        url = BASE_URL + '/documents/'
-
-        params = kwargs
-
-        return self.make_get_request(url, models.DocumentSet, params)
-
-    def __repr__(self):
-        return \
-            'Current User: %s\n' % self.user_name + \
-            'Methods:\n' + \
-            '   profile_get_info\n' + \
-            '   docs_get_details\n'
+    def delete(self, **kwargs):
+        pass
+    
+    def restore(self, **kwargs):
+        pass
 
 
 def convert_datetime_to_string(d, key):
     if key in d and isinstance(d[key], datetime):
         d[key] = d[key].strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        
+def _process_verbose(api,kwargs,response_params):
+    
+    """
+    
+    Parameters
+    ----------
+    api : API
+        Contains .verbose attribute
+    kwargs : dict
+        Options from the user
+    response_params : dict or None
+        Values for the response model. 
+        
+    
+    1) Allow user to make each call verbose or not.
+    2) Have default from main API that gets called if user input is not present.
+    3) Update response_params to include verbose value (for models) 
+    
+    """
+    
+    if 'verbose' in kwargs:
+        verbose = kwargs.pop('verbose')
+    else:
+        verbose = api.verbose   
+    
+    if response_params is not None:
+        response_params['verbose'] = verbose
+    
+    return verbose
