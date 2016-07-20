@@ -35,20 +35,18 @@ class UserLibrary:
     """
     Attributes
     ----------
-    api
-    user_name
-    verbose
-    sync_result :
-    doc_objects :
-    docs : Pandas entry
+    api : mendeley.api.API
+    user_name : string
+    verbose : bool
+    sync_result : Sync
+    docs : Pandas DataFrame
     raw : list of json object dicts
-    raw_trash : list of dicts
-
     """
 
     FILE_VERSION = 1
 
-    def __init__(self, user_name=None, verbose=False):
+    def __init__(self, user_name=None, verbose=False, sync=True):
+        
         self.api = API(user_name=user_name,verbose=verbose)
         self.user_name = self.api.user_name
         self.verbose = verbose
@@ -61,40 +59,60 @@ class UserLibrary:
 
         self._load()
 
-        self.sync()
+        if sync:
+            self.sync()
+        else:
+            self.sync_result = None
 
     def __repr__(self):
         pv = ['api',        cld(self.api),
               'user_name',  self.user_name,
               'docs',       cld(self.docs),
-              'raw',        cld(self.raw)]
+              'raw',        cld(self.raw),
+              'sync_result', cld(self.sync_result),
+              'verbose',    self.verbose]
         return utils.property_values_to_string(pv)
 
-    def sync(self):
+    def sync(self,verbose=None):
         """
-        Syncing approach:
+        Syncs the library with the Mendeley server.        
         
+        Parameters
+        ----------
+        verbose : bool (default, inherit from class value, self.verbose)
+        
+        TODO:
         ? How do we know if something has been restored from the trash?
-        
         """
 
-        sync_result = Sync(self.api, self.raw, verbose=self.verbose)
+        """
+        Due to the complexity of syncing, the syncing code has been moved to
+        its own class.
+        """
+        
+        if verbose is None:
+            verbose = self.verbose
+
+        sync_result = Sync(self.api, self.raw, verbose=verbose)
         self.sync_result = sync_result
         self.raw = sync_result.raw
         self.docs = sync_result.docs
         self._save()
 
-    def get_document(self, doi=None, index=None, return_json=False):
+    def get_document(self, doi=None, pmid=None, index=None, return_json=False, allow_multiple=False, _check=False):
         """
-        Returns the document (i.e. metadata) for a given DOI,
-        if the DOI is found in the library.
-
-        #TODO: Build in support for other identifier searches
-
+        Returns the document (i.e. metadata) based on a specified identifier.
+        
         Parameters
         ----------
-        doi : str
-        return_json : bool
+        doi : string (default None)
+        pmid : string (default None)
+        index : int (default None)
+            
+        return_json : bool (default False)
+        allow_multiple : bool (default False)
+            Not yet implemented
+
 
         Returns
         -------
@@ -102,78 +120,152 @@ class UserLibrary:
             If return_json is False
         JSON
             If return_json is True
-
+            
+        If allow_multiple is True, then a list of results will be returned.
         """
         
-        if index is not None:
-            # TODO: a range check
-            if index < 0 or index >= len(self.docs):
-                raise Exception('Out of bounds index request')
-            
-            document_json = self.docs.ix[index]['json']
-        elif doi is not None:
-            # Check database for a DOI match
-            # Using .lower() to handle case sensitivity - most of the
-            # time not an issue.
-
-            temp = self.docs[self.docs['doi'] == doi.lower()]
-
-            document_json = temp.get('json')
-            if len(temp) == 0 or len(document_json) == 0:
-                raise DOINotFoundError('DOI not found in library')
-
-            document_json = document_json[0]
-            document_id = document_json.get('id')
-
-        else:
-            raise Exception('Unrecognized search option')
+        """
+        TODO: We could support an indices input, that would return a list
+        """        
         
-        if return_json:
-            return document_json
+        parse_rows = True
+        
+        if index is not None:
+            if index < 0 or index >= len(self.docs):
+                if _check and index > 0:
+                    return False
+                else:
+                    raise Exception('Out of bounds index request')
+            elif _check:
+                return True
+                
+            #For an index, we expect a single result
+            document_json = [self.docs.ix[index]['json']]
+            parse_rows = False
+                                 
+        elif doi is not None:
+            #All dois in the library are stored as lower
+            df_rows = self.docs[self.docs['doi'] == doi.lower()]
+        elif pmid is not None:
+            df_rows = self.docs[self.docs['pmid'] == pmid]
         else:
-            return models.Document(document_json, self.api)
+            raise Exception('get_document: Unrecognized identifier search option')
+  
 
-    def check_for_document(self, doi):
+        #Handling of the parsing of the rows
+        #------------------------------------
+        if parse_rows:
+            #We parse rows when the rows to grab has not been specified
+            #explicitly and we need to determine if we found any matches
+            rows_json = df_rows['json']
+            if len(rows_json) == 1:
+                document_json = [rows_json[0]]
+            elif len(rows_json) == 0:
+                if _check:
+                    return False
+                else:
+                    if doi is not None:
+                        #TODO: can we use DocNotFoundError instead
+                        raise DOINotFoundError('DOI: "%s" not found in library' % doi)
+                    elif pmid is not None:
+                        raise DocNotFoundError('PMID: "%s" not found in library' % pmid)
+                    else:
+                        raise Exception('Code logic error, this should never run')
+            else: 
+                if allow_multiple:
+                    document_json = [x for x in rows_json]
+                elif _check:
+                    return False
+                else:
+                    if doi is not None:
+                        raise Exception('Multiple DOIs found for doi: "%s"' % doi)
+                    elif pmid is not None:
+                        raise Exception('Multiple PMIDs found for pmid: %s"' % pmid)
+                    else:
+                        raise Exception('Code logic error, this should never run')
+              
+        #Returning the results
+        #------------------------
+        if _check:
+            return True
+        elif return_json:
+            if allow_multiple:
+                return document_json
+            else:
+                return document_json[0]
+        else:
+            docs = [models.Document(x, self.api) for x in document_json]
+            if allow_multiple:
+                return docs
+            else:
+                return docs[0]
+
+    def check_for_document(self, doi=None, pmid=None):
         """
         Attempts to call self.get_document and checks for error.
         If no error, the DOI has been found.
 
         Parameters
         ----------
-        doi - document DOI
+        doi - string (default None)
+            Document's DOI 
+        pmid - string (default None)
 
         Returns
         -------
-        bool - True if DOI is found in the Mendeley library.
-            False otherwise.
+        bool - True if DOI is found in the Mendeley library. False otherwise.
         """
-        try:
-            self.get_document(doi=doi)
-            return True
-        except DOINotFoundError:
-            return False
+        
+        return self.get_document(doi=doi,pmid=pmid,_check=True)
 
-    def add_to_library(self, doi, check_in_lib=False, add_pdf=True, skip_scopus=False):
+    def add_to_library(self, doi=None, pmid=None, check_in_lib=False, add_pdf=True, file_path=None, skip_scopus=False):
         """
         
         Parameters
         ----------
         doi : string
+        check_in_lib : bool
+            If true, 
+        add_pdf : bool
         
-        Improvements:
+        
+        Improvements
+        ------------
+        * 
         - allow adding via PMID
         - pdf entry should be optional with default true
         - also need to handle adding pdf if possible but no error
         if not possible
         
         """
-        if check_in_lib:
-            if self.check_for_document():
-                print('Already in library.')
-                return
+        if check_in_lib and self.check_for_document():
+            #TODO: We might want this to have a different behavior besides printing            
+            print('Already in library.')
+            return
 
         #----------------------------------------------------------------------
         # Get paper information from DOI
+        """
+        skip_scopus is too specific. Replace with retrieve_refs or just refs. The
+        implementation should be transparent to the user. If it needs to be
+        more specific then you can pass in some control class, presumably from
+        the ref_resolver package.
+
+        proposed new interface:
+        
+        rr.get_paper_info(doi=None, pmid=None, get_refs=False)
+        
+        
+        Even then, this requires a bit of thinking. Why are we asking rr for
+        paper information? Perhaps we need another repository ...
+             - Pubmed
+             - Crossref
+             - others????
+                
+        
+        """
+        
+        
         if not skip_scopus:
             paper_info = rr.retrieve_all_info(input=doi, input_type='doi')
         else:
@@ -185,6 +277,30 @@ class UserLibrary:
 
         # Create the new document
         new_document = self.api.documents.create(formatted_entry)
+
+        """
+        add_pdf
+        
+        * I want to be able to specify the path to the file to add.
+        * Perhaps instead we want:
+            pdf = file_path
+            pdf = 'must_retrieve'
+            pdf = 'retrieve_or_request' - If not available, make a request for it
+            pdf = 'retrive_if_possible'
+            
+        I'm not thrilled with this specific interface, but I'd like something
+        like this.
+        
+        We might want an additional package that focuses on retrieving pdfs.
+        The big question is how to support letting these interfaces interact
+        efficiently without doing things multiple times. We can answer this 
+        at a later time.
+        
+        pdf retrieval:
+            - Interlibrary loan
+            - ScholarSolutions
+            - PyPub
+        """
 
         # Get pdf
         if add_pdf:
@@ -310,6 +426,7 @@ class UserLibrary:
                 d = pickle.load(pickle_file)
 
             self.raw = d['raw']
+            self.docs = _raw_to_data_frame(self.raw)
         else:
             self.raw = None
             self.docs = None
@@ -548,8 +665,20 @@ class Sync(object):
 
 def _raw_to_data_frame(raw, include_json=True):
     """
+    Parameters
+    ----------
+    raw : json
+        JSON data, generally (always?) from the Mendeley server. 
+    """
     
     """
+    Status: This is currently a bit of a mess because of Pandas auto-inference.
+    We might also switch all of this over to a SQL database.
+    Pandas also likes to use NaNs, which is nice for ignoring missing data, but
+    goes against Python's typical usage of None to indicate that a value has not 
+    been set. This can cause headaches in later processing.
+    """    
+    
     # Note that I'm not using the local attribute
     # as we can then use this for updating new information
     df = pd.DataFrame(raw)
@@ -559,8 +688,10 @@ def _raw_to_data_frame(raw, include_json=True):
     
     #TODO: This is a complete mess with type inference ...    
     
-    #TODO: identifiers may not exist :/
+    #TODO: The identifiers column may not exist :/ which would cause an error
+    #below
 
+    #Our goal with this line is that
     #https://github.com/pydata/pandas/issues/1972
     df['identifiers'] = df['identifiers'].where(pd.notnull(df['identifiers']),None)    
     
@@ -616,6 +747,9 @@ def parse_pmid(x):
 
 def parse_doi(x):
     try:
-        return x.get('doi', '')
+        return x.get('doi', '').lower()
     except:
         return ''
+
+def raise_(ex):
+    raise ex
