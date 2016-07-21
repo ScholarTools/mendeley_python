@@ -64,6 +64,7 @@ from . import auth
 from . import models
 from . import utils
 
+#TODO: I'd like to switch to importing specific errors ...
 from .errors import *
 
 PY2 = int(sys.version[0]) == 2
