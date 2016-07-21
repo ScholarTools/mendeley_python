@@ -9,8 +9,15 @@ class InvalidConfig(Exception):
 class OptionalLibraryError(Exception):
     pass
 
+
+#----------------- User Library Errors ----------------
 class DOINotFoundError(KeyError):
     pass
+
+class DocNotFoundError(KeyError):
+    pass
+
+
 
 class CallFailedException(Exception):
     pass
