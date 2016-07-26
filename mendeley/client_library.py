@@ -129,7 +129,9 @@ class UserLibrary:
         """        
         
         parse_rows = True
-        
+
+        document_json = None
+
         if index is not None:
             if index < 0 or index >= len(self.docs):
                 if _check and index > 0:
@@ -150,13 +152,13 @@ class UserLibrary:
             df_rows = self.docs[self.docs['pmid'] == pmid]
         else:
             raise Exception('get_document: Unrecognized identifier search option')
-  
 
-        #Handling of the parsing of the rows
-        #------------------------------------
+
+        # Handling of the parsing of the rows
+        # ------------------------------------
         if parse_rows:
-            #We parse rows when the rows to grab has not been specified
-            #explicitly and we need to determine if we found any matches
+            # We parse rows when the rows to grab has not been specified
+            # explicitly and we need to determine if we found any matches
             rows_json = df_rows['json']
             if len(rows_json) == 1:
                 document_json = [rows_json[0]]
@@ -165,8 +167,7 @@ class UserLibrary:
                     return False
                 else:
                     if doi is not None:
-                        #TODO: can we use DocNotFoundError instead
-                        raise DOINotFoundError('DOI: "%s" not found in library' % doi)
+                        raise DocNotFoundError('DOI: "%s" not found in library' % doi)
                     elif pmid is not None:
                         raise DocNotFoundError('PMID: "%s" not found in library' % pmid)
                     else:
@@ -184,8 +185,8 @@ class UserLibrary:
                     else:
                         raise Exception('Code logic error, this should never run')
               
-        #Returning the results
-        #------------------------
+        # Returning the results
+        # ------------------------
         if _check:
             return True
         elif return_json:
@@ -218,7 +219,7 @@ class UserLibrary:
         
         return self.get_document(doi=doi,pmid=pmid,_check=True)
 
-    def add_to_library(self, doi=None, pmid=None, check_in_lib=False, add_pdf=True, file_path=None, skip_scopus=False):
+    def add_to_library(self, doi=None, pmid=None, check_in_lib=False, add_pdf=True, file_path=None):
         """
         
         Parameters
@@ -246,30 +247,15 @@ class UserLibrary:
         #----------------------------------------------------------------------
         # Get paper information from DOI
         """
-        skip_scopus is too specific. Replace with retrieve_refs or just refs. The
-        implementation should be transparent to the user. If it needs to be
-        more specific then you can pass in some control class, presumably from
-        the ref_resolver package.
-
-        proposed new interface:
-        
-        rr.get_paper_info(doi=None, pmid=None, get_refs=False)
-        
-        
         Even then, this requires a bit of thinking. Why are we asking rr for
         paper information? Perhaps we need another repository ...
              - Pubmed
              - Crossref
              - others????
-                
-        
+
         """
-        
-        
-        if not skip_scopus:
-            paper_info = rr.retrieve_all_info(input=doi, input_type='doi')
-        else:
-            paper_info = rr.paper_info_from_doi(doi)
+
+        paper_info = rr.retrieve_all_info(input=doi, input_type='doi')
 
         # Turn the BaseEntry object into a formatted dict for submission
         # to the Mendeley API
@@ -533,8 +519,6 @@ class Sync(object):
 
         # Let's work with everything as a dataframe
         self.docs = _raw_to_data_frame(self.raw)
-
-        #self.raw = self.docs['json'].tolist()
 
         # Determine the document that was updated most recently. We'll ask for
         # everything that changed after that time. This avoids time sync

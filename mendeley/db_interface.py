@@ -74,8 +74,11 @@ def add_reference(ref, main_doi, main_title):
     db.add_reference(ref=ref, main_paper_doi=main_doi, main_paper_title=main_title)
 
 
-def update_reference_field(identifying_value, updating_field, updating_value, filter_by_title=False, filter_by_doi=False):
-    db.update_reference_field(identifying_value, updating_field, updating_value, filter_by_title, filter_by_doi)
+def update_reference_field(identifying_value, updating_field, updating_value, citing_doi=None, authors=None,
+                           filter_by_title=False, filter_by_doi=False, filter_by_authors=False):
+    db.update_reference_field(identifying_value, updating_field, updating_value, citing_doi=citing_doi, authors=authors,
+                           filter_by_title=filter_by_title, filter_by_doi=filter_by_doi,
+                              filter_by_authors=filter_by_authors)
 
 
 def _make_paper_info(info):
@@ -124,8 +127,6 @@ def _mendeley_df_to_paper_info(df_row):
             author.name = name
             entry.authors.append(author)
 
-
-
     ids = df_dict.get('identifiers')
     if ids is not None:
         if 'doi' in ids.keys():
@@ -137,13 +138,8 @@ def _mendeley_df_to_paper_info(df_row):
     return paper_info
 
 
-
 def _mendeley_json_to_paper_info(json):
     paper_info = PaperInfo()
-
-    if 'Methylene-Atp' in json.get('title'):
-        import pdb
-        #pdb.set_trace()
 
     entry = obj.BaseEntry()
     entry.title = json.get('title')
