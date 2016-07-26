@@ -32,8 +32,8 @@ try:
     import reference_resolver as rr
 except ImportError:
     rr = MissingModule('The method called requires the library "reference_resolver" from the Scholar Tools Github repo')
-    #TODO: Provide link to repo
-    #Eventually pip the repo and specify pip is possible
+    # TODO: Provide link to repo
+    # Eventually pip the repo and specify pip is possible
 
 try:
     import pypub.publishers.pub_objects as pub_objects
@@ -49,3 +49,8 @@ try:
     from pypub.scrapers import base_objects
 except ImportError:
     base_objects = MissingModule('The method called requires the library "pypub" from the Scholar Tools Github repo')
+
+try:
+    from scopy import Scopus
+except ImportError:
+    Scopus = MissingModule('The method called requires the library "scopy" from the Scholar Tools Github repo')
