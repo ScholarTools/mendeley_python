@@ -10,7 +10,7 @@ class OptionalLibraryError(Exception):
     pass
 
 
-#----------------- User Library Errors ----------------
+# ----------------- User Library Errors ----------------
 class DOINotFoundError(KeyError):
     pass
 
@@ -26,4 +26,12 @@ class PDFError(Exception):
     pass
 
 class AuthException(Exception):
+    pass
+
+
+# ----------------- Database Errors --------------------
+class MultipleDoiError(Exception):
+    pass
+
+class DatabaseError(Exception):
     pass
