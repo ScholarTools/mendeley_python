@@ -7,6 +7,7 @@ from database import db_logging as db
 # TODO: Possibly copy these base classes into a file within mendeley_python
 from mendeley.optional import PaperInfo
 from mendeley.optional import base_objects as obj
+from mendeley.errors import *
 
 
 def add_to_db(info):
@@ -79,6 +80,19 @@ def update_reference_field(identifying_value, updating_field, updating_value, ci
     db.update_reference_field(identifying_value, updating_field, updating_value, citing_doi=citing_doi, authors=authors,
                            filter_by_title=filter_by_title, filter_by_doi=filter_by_doi,
                               filter_by_authors=filter_by_authors)
+
+
+def check_for_document(doi):
+    try:
+        docs = db.get_saved_info(doi)
+    except MultipleDoiError:
+        docs = None
+        pass
+
+    if docs is not None:
+        return True
+    else:
+        return False
 
 
 def _make_paper_info(info):

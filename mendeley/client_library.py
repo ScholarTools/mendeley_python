@@ -358,6 +358,19 @@ class UserLibrary:
                 elif len(parts) == 2 and '.' in parts[1]:
                     name_dict['first_name'] = parts[1]
                     name_dict['last_name'] = parts[0]
+                # If format is only "lastname"
+                elif len(parts) == 1:
+                    name_dict['last_name'] = parts[0]
+                    name_dict['first_name'] = ''
+                # If there are multiple initials
+                elif len(parts) > 3:
+                    initials = ''
+                    for part in parts:
+                        if '.' in part:
+                            initials += part
+                        else:
+                            name_dict['last_name'] = part
+                    name_dict['first_name'] = initials
                 # Otherwise assume format is "firstname lastname" or "firstinitial. lastname"
                 else:
                     name_dict['first_name'] = parts[0]
