@@ -25,6 +25,7 @@ from .errors import *
 from . import models
 from . import utils
 from .optional import rr
+from .optional import pdf_retrieval
 from . import db_interface
 
 fstr = utils.float_or_none_to_string
@@ -290,18 +291,9 @@ class UserLibrary:
 
         # Get pdf
         if add_pdf:
-            try:
-                if paper_info.publisher_interface is None:
-                    paper_info.make_interface_object()
-                pdf_content = paper_info.publisher_interface.get_pdf_content(pdf_url=paper_info.pdf_link)
-            except Exception:
-                raise PDFError('PDF could not be retrieved')
+            pdf_content = pdf_retrieval.get_pdf(paper_info)
+            new_document.add_file({'file' : pdf_content})
 
-            if pdf_content is None:
-                raise PDFError('PDF could not be retrieved')
-            else:
-                new_document.add_file({'file' : pdf_content})
-        
     def _format_doc_entry(self, entry):
         """
         Mendeley API has specific input formatting when creating a document.

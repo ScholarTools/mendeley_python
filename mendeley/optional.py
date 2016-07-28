@@ -54,3 +54,8 @@ try:
     from scopy import Scopus
 except ImportError:
     Scopus = MissingModule('The method called requires the library "scopy" from the Scholar Tools Github repo')
+
+try:
+    from pdfetch import pdf_retrieval
+except ImportError:
+    pdf_retrieval = MissingModule('The method called requires the library "pdfetch" from the Scholar Tools Github repo')
