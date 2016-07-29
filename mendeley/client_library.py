@@ -145,8 +145,10 @@ class UserLibrary:
             #For an index, we expect a single result
             document_json = [self.docs.ix[index]['json']]
             parse_rows = False
-                                 
+
         elif doi is not None:
+            import pdb
+            #pdb.set_trace()
             #All dois in the library are stored as lower
             df_rows = self.docs[self.docs['doi'] == doi.lower()]
         elif pmid is not None:
@@ -532,17 +534,25 @@ class Sync(object):
         newest_modified_time = self.docs['last_modified'].max()
         self.newest_modified_time = newest_modified_time
 
+        # The problem with the above approach is that Mendeley returns
+        # documents updated since AND at 'newest_modified_time'. This
+        # means that the call always returns >= 1 document.
+        # Try adding a second to 'newest_modified_time'
+        later_modified_time = newest_modified_time + pd.Timedelta('00:00:01')
+
         # Remove old ids
         #------------------------------------
         self.get_trash_ids()
-        self.get_deleted_ids(newest_modified_time)
+        #self.get_deleted_ids(newest_modified_time)
+        self.get_deleted_ids(later_modified_time)
         self.remove_old_ids()
 
         # Process new and updated documents
         # ------------------------------------
         updates_and_new_entries_start_time = ctime()
         self.verbose_print('Checking for modified or new documents')
-        self.get_updates_and_new_entries(newest_modified_time)
+        #self.get_updates_and_new_entries(newest_modified_time)
+        self.get_updates_and_new_entries(later_modified_time)
         self.time_modified_processing = ctime() - updates_and_new_entries_start_time
         self.verbose_print('Done updating modified and new documents')
 

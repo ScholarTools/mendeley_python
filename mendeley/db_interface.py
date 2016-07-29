@@ -95,6 +95,10 @@ def check_for_document(doi):
         return False
 
 
+def follow_refs_forward(doi):
+    return db.follow_refs_forward(doi)
+
+
 def _make_paper_info(info):
     if isinstance(info, PaperInfo):
         return info
