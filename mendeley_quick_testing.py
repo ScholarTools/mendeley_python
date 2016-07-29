@@ -80,8 +80,9 @@ db_doc = db.get_saved_info(db_doi)
 m_doc = temp.get_document(db_doi)
 
 
-import pdb
-pdb.set_trace()
+#
+# New objective - enable exporting and archiving of Mendeley library
+#
 
 
 
