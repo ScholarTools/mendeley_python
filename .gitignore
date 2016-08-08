@@ -8,6 +8,7 @@
 
 *.db
 *.zip
+*.pdf
 
 # Test files
 test_pdf.pdf

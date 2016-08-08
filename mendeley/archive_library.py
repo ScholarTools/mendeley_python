@@ -11,7 +11,7 @@ from mendeley import client_library
 from mendeley import api
 
 
-class Archivist():
+class Archivist:
     def __init__(self):
         self.library = client_library.UserLibrary()
         self.doc_list = self.library.raw
@@ -49,7 +49,11 @@ class Archivist():
 
             # Divide the library archives into multiple folders, each with 100 papers
             if count > 0 and count%100 == 0:
-                self.write_doc_data()
+                try:
+                    self.write_doc_data()
+                except Exception as exc:
+                    comment = 'Failed to write_doc_data() at count %d' % count
+                    self.log_exception(exc=exc, comment=comment, doc=doc)
 
             # Check for/retrieve and set notes
             notes = doc.get('notes')
@@ -63,10 +67,21 @@ class Archivist():
                 doc_id = doc.get('id')
 
                 # First get the content and name of the attached pdf
-                file_content, file_name = self.m.files.get_file_content_from_doc_id(doc_id=doc_id)
+                try:
+                    file_content, file_name = self.m.files.get_file_content_from_doc_id(doc_id=doc_id)
+                except Exception as exc:
+                    file_content = ''
+                    file_name = 'none' + str(count) + '.pdf'
+                    comment = 'Failed to get_file_content_from_doc_id at count %d' % count
+                    self.log_exception(exc=exc, comment=comment, doc=doc)
 
                 # Next get the annotations, if any
-                annotations = self.m.annotations.get(document_id=doc_id)
+                try:
+                    annotations = self.m.annotations.get(document_id=doc_id)
+                except Exception as exc:
+                    annotations = None
+                    comment = 'Failed to retrieve annotations at count %d' % count
+                    self.log_exception(exc=exc, comment=comment, doc=doc)
 
                 # Add to dict
                 doc['file_name'] = file_name
@@ -117,6 +132,25 @@ class Archivist():
                 zipf.write(os.path.join(root, file))
 
         zipf.close()
+
+    def log_exception(self, exc, comment, doc):
+        # For recording exceptions that arise while archiving
+        doc_title = doc.get('title')
+        if doc_title is None:
+            doc_title = ''
+
+        ids = doc.get('identifiers')
+        if ids is not None:
+            doc_doi = ids.get('doi')
+        else:
+            doc_doi = None
+
+        log_dict = {'Exception': exc, 'Comment': comment,
+                    'Doc Title': doc_title, 'Doc DOI': doc_doi}
+
+        logfile = self.save_folder_path + '/logfile.txt'
+        with open(logfile, 'a') as file:
+            file.write(json.dumps(log_dict))
 
 
 a = Archivist()
