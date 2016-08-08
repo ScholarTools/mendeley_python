@@ -83,7 +83,10 @@ class ResponseObject(object):
         """
         if name in self.fields():
             if isinstance(self.json, list):
-                raise TypeError('oh no, JSON is a list...')
+                if len(self.json) > 0:
+                    self.json = self.json[0]
+                else:
+                    self.json = {}
             value = self.json.get(name)
             
             #We don't call object construction methods on None values

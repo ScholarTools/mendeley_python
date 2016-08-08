@@ -347,14 +347,18 @@ class Annotations(object):
         if document_id is None:
             raise LookupError('Must enter a document ID to retrieve annotations.')
 
-        #TODO: Why is kwargs not being used?
         params = dict()
         params['document_id'] = document_id
         params['include_trashed'] = False
 
         headers = {'Content-Type' : 'application/vnd.mendeley-annotation.1+json'}
 
-        return self.parent.make_get_request(url, models.Annotation, params, headers=headers)
+        # return self.parent.make_get_request(url, models.Annotation, params, headers=headers)
+        resp = requests.get(url, params=params, headers=headers, auth=self.parent.access_token)
+        if resp.status_code != 200:
+            return []
+        else:
+            return resp.text
 
     def create(self, **kwargs):
         """
@@ -702,7 +706,41 @@ class Files(object):
 
         return file_id
 
-        pass
+    def get_file_content_from_doc_id(self, doc_id):
+        url = BASE_URL + '/files'
+
+        # First need to make a request to find files based on the document ID.
+        # This returns the file ID for the attached file (if found)
+        params = {'document_id': doc_id}
+        headers = {'Content-Type': 'application/vnd.mendeley-file.1+json'}
+
+        resp = requests.get(url, params=params, headers=headers, auth=self.parent.access_token)
+
+        file_json = None
+        if resp.status_code == 404:
+            raise FileNotFoundError('Document could not be found.')
+        elif resp.status_code != 200:
+            print(resp)
+            raise PermissionError('Could not connect to the server.')
+        else:
+            file_json = resp.json()
+
+        if isinstance(file_json, list):
+            file_json = file_json[0]
+
+        file_name = file_json.get('file_name')
+        file_id = file_json.get('id')
+
+        # Next need to make another API request using the file ID in order
+        # to retrieve the file content and download it.
+        new_url = url + '/' + file_id
+        new_params = {'file_id': file_id}
+        resp = requests.get(new_url, params=new_params, auth=self.parent.access_token)
+
+        file_content = resp.content
+
+        return file_content, file_name
+
 
     def link_file(self, file, params, file_url=None):
         """

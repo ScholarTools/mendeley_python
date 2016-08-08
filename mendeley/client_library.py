@@ -147,8 +147,6 @@ class UserLibrary:
             parse_rows = False
 
         elif doi is not None:
-            import pdb
-            #pdb.set_trace()
             #All dois in the library are stored as lower
             df_rows = self.docs[self.docs['doi'] == doi.lower()]
         elif pmid is not None:

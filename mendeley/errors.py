@@ -9,6 +9,9 @@ class InvalidConfig(Exception):
 class OptionalLibraryError(Exception):
     pass
 
+class UnsupportedEntryTypeError(Exception):
+    pass
+
 
 # ----------------- User Library Errors ----------------
 class DOINotFoundError(KeyError):

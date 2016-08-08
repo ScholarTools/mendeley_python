@@ -32,6 +32,10 @@ def test_get_pdf(pdf_url):
 doi = '10.1177/1073858414541484'
 
 temp = client_library.UserLibrary(verbose=True)
+
+import pdb
+pdb.set_trace()
+
 #print([x['title'] for x in temp.raw])
 
 m = api.API()

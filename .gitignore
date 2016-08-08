@@ -4,8 +4,10 @@
 /mendeley/acct_config.py
 /.idea/
 /data/
+/archives/
 
 *.db
+*.zip
 
 # Test files
 test_pdf.pdf
