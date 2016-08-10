@@ -1,3 +1,5 @@
+import math
+
 # Third party imports
 import pandas
 
@@ -122,6 +124,12 @@ def _mendeley_df_to_paper_info(df_row):
     df_dict = df_row.to_dict()
     paper_info = PaperInfo()
 
+    # Catch NaNs, which are default Pandas values
+    for key in df_dict.keys():
+        if isinstance(df_dict.get(key), float):
+            if math.isnan(df_dict.get(key)):
+                df_dict[key] = None
+
     entry = obj.BaseEntry()
     entry.title = df_dict.get('title')
     entry.publication = df_dict.get('publisher')
@@ -190,6 +198,8 @@ def _mendeley_json_to_paper_info(json):
         if 'doi' in ids.keys():
             entry.doi = ids.get('doi')
             paper_info.doi = ids.get('doi')
+        if 'pmid' in ids.keys():
+            entry.pubmed_id = ids.get('pmid')
 
     paper_info.entry = entry
 

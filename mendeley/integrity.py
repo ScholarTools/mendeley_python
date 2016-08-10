@@ -15,6 +15,8 @@ class Analysis(object):
 
         self.without_dois = None
         self.without_dois_count = None
+        self.without_pmids = None
+        self.without_pmids_count = None
         self.without_files = None
         self.without_files_count = None
         self.without_file_info = None
@@ -28,6 +30,7 @@ class Analysis(object):
                               'or add documents before performing analysis.')
 
         self.without_dois_count = self.missing_doi_search()
+        self.without_pmids_count = self.missing_pmid_search()
         (self.without_files_count, self.without_file_info_count) = self.missing_file_search()
         self.duplicate_doi_count = self.duplicate_doi_search()
 
@@ -38,6 +41,14 @@ class Analysis(object):
 
         without_dois_count = len(without_dois)
         return without_dois_count
+
+    def missing_pmid_search(self):
+        without_pmids = self.session.query(tables.MainPaperInfo).filter((tables.MainPaperInfo.pubmed_id == None)
+                                                                        | (tables.MainPaperInfo.pubmed_id == '')).all()
+        self.without_pmids = without_pmids
+
+        without_pmids_count = len(without_pmids)
+        return without_pmids_count
 
     def missing_file_search(self):
         # Documents where the has_file entry has been explicitly set to 0
@@ -81,6 +92,7 @@ class Analysis(object):
         return u'' \
             'Total document count: %d\n' % self.total_paper_count + \
             'Documents without DOIs: %d\n' % self.without_dois_count + \
+            'Documents without PMIDs: %d\n' % self.without_pmids_count + \
             'Documents without files: %d\n' % self.without_files_count + \
             'Documents that may be missing files: %d\n' % self.without_file_info_count + \
             'DOIs that are duplicated: %d\n' % self.duplicate_doi_count
