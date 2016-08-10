@@ -12,7 +12,8 @@ from mendeley.errors import *
 
 def add_to_db(info):
     paper_info = _make_paper_info(info)
-    db.log_info(paper_info=paper_info)
+    has_file = info.get('file_attached')
+    db.log_info(paper_info=paper_info, has_file=has_file)
 
 
 def update_db_entry(info):
@@ -71,8 +72,13 @@ def update_db_entry(info):
                              updating_value=updating_values, filter_by_title=True)
 
 
-def add_reference(ref, main_doi, main_title):
-    db.add_reference(ref=ref, main_paper_doi=main_doi, main_paper_title=main_title)
+def update_entry_field(identifying_value, updating_field, updating_value, filter_by_title=False, filter_by_doi=False):
+    db.update_entry_field(identifying_value, updating_field, updating_value,
+                          filter_by_title=filter_by_title, filter_by_doi=filter_by_doi)
+
+
+def add_reference(refs, main_doi, main_title):
+    db.add_references(refs=refs, main_paper_doi=main_doi, main_paper_title=main_title)
 
 
 def update_reference_field(identifying_value, updating_field, updating_value, citing_doi=None, authors=None,

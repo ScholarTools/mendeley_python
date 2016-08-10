@@ -33,7 +33,7 @@ class Archivist:
 
     def archive(self):
 
-        self.current_folder = self.save_folder_path + '/volume' + str(self.volume_number)
+        self.current_folder = os.path.join(self.save_folder_path, 'volume', str(self.volume_number))
         os.makedirs(self.current_folder)
 
         self.doc_length = len(self.doc_list)
@@ -71,9 +71,11 @@ class Archivist:
                     file_content, file_name = self.m.files.get_file_content_from_doc_id(doc_id=doc_id)
                 except Exception as exc:
                     file_content = ''
-                    file_name = 'none' + str(count) + '.pdf'
+                    file_name = 'none' + str(count)
                     comment = 'Failed to get_file_content_from_doc_id at count %d' % count
                     self.log_exception(exc=exc, comment=comment, doc=doc)
+
+                file_name += '.pdf'
 
                 # Next get the annotations, if any
                 try:
@@ -88,7 +90,7 @@ class Archivist:
                 doc['annotations'] = annotations
 
                 # Write pdf to disk
-                pdf_save_path = self.current_folder + '/' + file_name + '.pdf'
+                pdf_save_path = os.path.join(self.current_folder, file_name)
                 with open(pdf_save_path, 'wb') as file:
                     file.write(file_content)
 
@@ -106,7 +108,7 @@ class Archivist:
 
     def write_doc_data(self, last_iteration=False):
         # Write to the current folder
-        json_file = self.current_folder + '/document_list_' + str(self.volume_number)
+        json_file = os.path.join(self.current_folder, ('document_list_' + str(self.volume_number)))
         with open(json_file, 'w') as file:
             file.write(json.dumps(self.archive_list))
 
@@ -118,7 +120,7 @@ class Archivist:
 
         # Make a new folder if there are more documents to save
         if not last_iteration:
-            new_folder = self.save_folder_path + '/volume' + str(self.volume_number)
+            new_folder = os.path.join(self.save_folder_path, ('volume' + str(self.volume_number)))
             os.makedirs(new_folder)
             self.volume_number += 1
             self.current_folder = new_folder
@@ -148,7 +150,7 @@ class Archivist:
         log_dict = {'Exception': exc, 'Comment': comment,
                     'Doc Title': doc_title, 'Doc DOI': doc_doi}
 
-        logfile = self.save_folder_path + '/logfile.txt'
+        logfile = os.path.join(self.save_folder_path, 'logfile.txt')
         with open(logfile, 'a') as file:
             file.write(json.dumps(log_dict))
 

@@ -8,6 +8,7 @@ import random
 from mendeley import client_library
 from mendeley import api
 from database import db_logging as db
+from mendeley import integrity
 
 def random_entry():
     d = dict()
@@ -32,6 +33,8 @@ def test_get_pdf(pdf_url):
 doi = '10.1177/1073858414541484'
 
 temp = client_library.UserLibrary(verbose=True)
+
+analyst = integrity.Analysis(temp)
 
 import pdb
 pdb.set_trace()
