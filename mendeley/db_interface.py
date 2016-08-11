@@ -107,6 +107,31 @@ def follow_refs_forward(doi):
     return db.follow_refs_forward(doi)
 
 
+def check_multiple_constraints(params):
+    # Params is a dict
+
+    # first_key, first_value = params.popitem()
+    # query_results = db.main_paper_search_wrapper(first_key, first_value)
+    query_results = db.get_all_main_papers()
+
+    for key, value in params.items():
+        temp = []
+        for result in query_results:
+            search_value = getattr(result, key, '')
+            if search_value is None:
+                continue
+            else:
+                if value.lower() in search_value.lower():
+                    temp.append(result)
+        query_results = temp
+        # query_results = [result for result in query_results if value.lower() in str(getattr(result, key, '')).lower()]
+        if len(query_results) == 0:
+            return None
+
+    return query_results
+
+
+
 def _make_paper_info(info):
     if isinstance(info, PaperInfo):
         return info

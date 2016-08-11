@@ -1,5 +1,11 @@
+# Standard imports
+import concurrent.futures
+from urllib.parse import quote as urllib_quote
 
+# Third party imports
+import requests
 
+# Local imports
 from database.db_errors import *
 import database.db_tables as tables
 from database import Session
@@ -33,10 +39,12 @@ class Analysis(object):
         self.without_pmids_count = self.missing_pmid_search()
         (self.without_files_count, self.without_file_info_count) = self.missing_file_search()
         self.duplicate_doi_count = self.duplicate_doi_search()
+        #self.invalid_doi_count = self.validate_DOIs()
 
     def missing_doi_search(self):
-        without_dois = self.session.query(tables.MainPaperInfo).filter((tables.MainPaperInfo.doi == None)
-                                                                        | (tables.MainPaperInfo.doi == '')).all()
+        without_dois = self.session.query(tables.MainPaperInfo).filter((tables.MainPaperInfo.in_lib == 1)
+                                                                    & ((tables.MainPaperInfo.doi == None)
+                                                                    | (tables.MainPaperInfo.doi == ''))).all()
         self.without_dois = without_dois
 
         without_dois_count = len(without_dois)
@@ -88,6 +96,45 @@ class Analysis(object):
 
         return len(doi_dict.keys())
 
+    def validate_dois(self):
+        docs_with_dois = self.session.query(tables.MainPaperInfo).filter((tables.MainPaperInfo.in_lib == 1)
+                                                                    & (tables.MainPaperInfo.doi != None)
+                                                                    & (tables.MainPaperInfo.doi != '')).all()
+        '''
+        # TODO: Well, this doesn't work.
+        # Use multithreading to check multiple DOIs at once
+        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as e:
+            e.map(self._doi_validate_helper, docs_with_dois)
+        '''
+
+        # TODO: FIGURE OUT WHY SO MANY REQUESTS ARE RETURNING 404
+        # Maybe it's not handling redirects properly?
+
+        for doc in docs_with_dois:
+            self._doi_validate_helper(doc)
+
+        # Update session with changes
+        self.session.commit()
+
+        invalid_doi_count = self.session.query(tables.MainPaperInfo).filter((tables.MainPaperInfo.in_lib == 1)
+                                                                    & (tables.MainPaperInfo.valid_doi == 0)).count()
+
+        print('')
+        return invalid_doi_count
+
+    def _doi_validate_helper(self, db_object):
+        doi = db_object.doi
+        url = 'http://dx.doi.org/' + urllib_quote(doi)
+        resp = requests.get(url)
+        print(resp.status_code)
+        print('Entered URL: ' + url)
+        print('Response URL: ' + resp.url)
+        print()
+        if resp.ok:
+            db_object.valid_doi = 1
+        else:
+            db_object.valid_doi = 0
+
     def __repr__(self):
         return u'' \
             'Total document count: %d\n' % self.total_paper_count + \
@@ -95,4 +142,5 @@ class Analysis(object):
             'Documents without PMIDs: %d\n' % self.without_pmids_count + \
             'Documents without files: %d\n' % self.without_files_count + \
             'Documents that may be missing files: %d\n' % self.without_file_info_count + \
-            'DOIs that are duplicated: %d\n' % self.duplicate_doi_count
+            'DOIs that are duplicated: %d\n' % self.duplicate_doi_count + \
+            'Invalid DOIs: For number of invalid DOIs, run the Analysis.validate_DOIs method.'

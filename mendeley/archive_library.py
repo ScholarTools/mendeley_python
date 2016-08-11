@@ -12,11 +12,18 @@ from mendeley import api
 
 
 class Archivist:
-    def __init__(self):
-        self.library = client_library.UserLibrary()
+    def __init__(self, library=None, api=None):
+        if library is None:
+            self.library = client_library.UserLibrary()
+        else:
+            self.library = library
+
         self.doc_list = self.library.raw
 
-        self.m = api.API()
+        if api is None:
+            self.m = api.API()
+        else:
+            self.m = api
 
         self.archive_list = []
         self.volume_number = 1
@@ -103,8 +110,11 @@ class Archivist:
                 sys.stdout.write("\r%d%%" % self.progress_counter)
                 sys.stdout.flush()
 
-        # Finally, write the last document data to a folder
+        # Write the last document data to a folder
         self.write_doc_data(last_iteration=True)
+
+        # Finally, zip everything
+        self.zipdir(self.save_folder_path, 'Archived_Library')
 
     def write_doc_data(self, last_iteration=False):
         # Write to the current folder
@@ -115,9 +125,6 @@ class Archivist:
         # Reset
         self.archive_list = []
 
-        # Zip folder
-        self.zipdir(self.current_folder, self.volume_number)
-
         # Make a new folder if there are more documents to save
         if not last_iteration:
             new_folder = os.path.join(self.save_folder_path, ('volume' + str(self.volume_number)))
@@ -125,8 +132,7 @@ class Archivist:
             self.volume_number += 1
             self.current_folder = new_folder
 
-    def zipdir(self, path, volume_number):
-        zip_name = 'Volume_' + str(volume_number) + '.zip'
+    def zipdir(self, path, zip_name):
         zipf = zipfile.ZipFile(zip_name, 'w', zipfile.ZIP_DEFLATED)
 
         for root, dirs, files in os.walk(path):
@@ -153,7 +159,3 @@ class Archivist:
         logfile = os.path.join(self.save_folder_path, 'logfile.txt')
         with open(logfile, 'a') as file:
             file.write(json.dumps(log_dict))
-
-
-a = Archivist()
-a.archive()
