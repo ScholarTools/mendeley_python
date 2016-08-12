@@ -79,7 +79,7 @@ def update_entry_field(identifying_value, updating_field, updating_value, filter
                           filter_by_title=filter_by_title, filter_by_doi=filter_by_doi)
 
 
-def add_reference(refs, main_doi, main_title):
+def add_reference(refs, main_doi, main_title=None):
     db.add_references(refs=refs, main_paper_doi=main_doi, main_paper_title=main_title)
 
 

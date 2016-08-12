@@ -739,7 +739,7 @@ class Files(object):
 
         file_content = resp.content
 
-        return file_content, file_name
+        return file_content, file_name, file_id
 
 
     def link_file(self, file, params, file_url=None):
