@@ -27,7 +27,7 @@ from . import utils
 from .optional import rr
 from .optional import pdf_retrieval
 from . import db_interface
-from . import archive_library
+# from . import archive_library
 
 fstr = utils.float_or_none_to_string
 cld = utils.get_list_class_display
@@ -101,9 +101,9 @@ class UserLibrary:
         self.docs = sync_result.docs
         self._save()
 
-    def archive(self):
-        archivist = archive_library.Archivist(library=self, api=self.api)
-        archivist.archive()
+    # def archive(self):
+    #     archivist = archive_library.Archivist(library=self, api=self.api)
+    #     archivist.archive()
 
     def get_document(self, doi=None, pmid=None, index=None, return_json=False, allow_multiple=False, _check=False):
         """
