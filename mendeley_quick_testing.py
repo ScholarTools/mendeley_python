@@ -10,6 +10,11 @@ from mendeley import api
 from database import db_logging as db
 from mendeley import integrity
 
+import sys
+import os
+from PyQt5.QtWidgets import *
+
+
 def random_entry():
     d = dict()
     d["title"] = ''.join(random.SystemRandom().choice(string.ascii_lowercase) for _ in range(8))
@@ -18,6 +23,7 @@ def random_entry():
     d["identifiers"]["doi"] = '10.' + str(random.random())[2:12]
     d["tags"] = ["cool paper"]
     return d
+
 
 def test_get_pdf(pdf_url):
     import requests
@@ -30,20 +36,34 @@ def test_get_pdf(pdf_url):
             file.write(resp.content)
 
 
+def _file_selector():
+        app = QApplication(sys.argv)
+        dialog = QFileDialog()
+        dialog.setFileMode(QFileDialog.DirectoryOnly)
+        dialog.setViewMode(QFileDialog.List)
+        dialog.setDirectory(os.path.expanduser('~'))
+        if dialog.exec_():
+            filenames = dialog.selectedFiles()
+            return filenames[0]
+        else:
+            return None
+
 doi = '10.1177/1073858414541484'
+doi = '10.1002/bit.25159'
 
 temp = client_library.UserLibrary(verbose=True)
 
-analyst = integrity.Analysis(temp)
+# analyst = integrity.Analysis(temp)
+
+temp.update_file_from_local(doi=doi)
 
 import pdb
 pdb.set_trace()
 
-#print([x['title'] for x in temp.raw])
+
 
 m = api.API()
 
-#m.folders.create('New Folder')
 
 # Adding a real entry
 '''

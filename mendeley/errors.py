@@ -20,7 +20,8 @@ class DOINotFoundError(KeyError):
 class DocNotFoundError(KeyError):
     pass
 
-
+class DuplicateDocumentError(Exception):
+    pass
 
 class CallFailedException(Exception):
     pass

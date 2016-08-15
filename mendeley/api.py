@@ -331,19 +331,18 @@ class API(object):
 
         return self.make_get_request(url, models.DocumentSet.create, kwargs, response_params)
 
+
 class Annotations(object):
     
     def __init__(self, parent):
         self.parent = parent
+        self.url = BASE_URL + '/annotations'
 
-    def get(self, **kwargs):
+    def get(self, document_id=None):
         """
         https://api.mendeley.com/apidocs#!/annotations/getAnnotations
         """
 
-        url = BASE_URL + '/annotations'
-
-        document_id = kwargs.get('document_id')
         if document_id is None:
             raise LookupError('Must enter a document ID to retrieve annotations.')
 
@@ -354,17 +353,23 @@ class Annotations(object):
         headers = {'Content-Type' : 'application/vnd.mendeley-annotation.1+json'}
 
         # return self.parent.make_get_request(url, models.Annotation, params, headers=headers)
-        resp = requests.get(url, params=params, headers=headers, auth=self.parent.access_token)
+        resp = requests.get(self.url, params=params, headers=headers, auth=self.parent.access_token)
         if resp.status_code != 200:
             return []
         else:
             return resp.text
 
-    def create(self, **kwargs):
+    def create(self, annotation_body):
         """
         https://api.mendeley.com/apidocs/docs#!/annotations/createAnnotation
         """
-        pass
+        params = {'body': annotation_body}
+        headers = {'Content-Type': 'application/vnd.mendeley-annotation.1+json'}
+
+        resp = requests.post(self.url, params=params, headers=headers, auth=self.parent.access_token)
+        if not resp.ok:
+            raise ConnectionError('')
+
 
     def delete(self, **kwargs):
         url = BASE_URL + '/annotations'
@@ -665,6 +670,7 @@ class Files(object):
     
     def __init__(self, parent):
         self.parent = parent
+        self.url = BASE_URL + '/files'
 
     def get_single(self, **kwargs):
         """
@@ -687,8 +693,6 @@ class Files(object):
 
         """
 
-        url = BASE_URL + '/files'
-
         doc_id = kwargs.get('document_id')
 
         # Not sure what this should be doing
@@ -700,21 +704,19 @@ class Files(object):
 
         file_id = json['id']
 
-        file_url = url + '?id=' + file_id
+        file_url = self.url + '?id=' + file_id
 
         file_response = self.parent.s.get(file_url, auth=self.parent.access_token)
 
         return file_id
 
-    def get_file_content_from_doc_id(self, doc_id):
-        url = BASE_URL + '/files'
-
+    def get_file_content_from_doc_id(self, doc_id, no_content=False):
         # First need to make a request to find files based on the document ID.
         # This returns the file ID for the attached file (if found)
         params = {'document_id': doc_id}
         headers = {'Content-Type': 'application/vnd.mendeley-file.1+json'}
 
-        resp = requests.get(url, params=params, headers=headers, auth=self.parent.access_token)
+        resp = requests.get(self.url, params=params, headers=headers, auth=self.parent.access_token)
 
         file_json = None
         if resp.status_code == 404:
@@ -731,13 +733,16 @@ class Files(object):
         file_name = file_json.get('file_name')
         file_id = file_json.get('id')
 
-        # Next need to make another API request using the file ID in order
-        # to retrieve the file content and download it.
-        new_url = url + '/' + file_id
-        new_params = {'file_id': file_id}
-        resp = requests.get(new_url, params=new_params, auth=self.parent.access_token)
+        if not no_content:
+            # Next need to make another API request using the file ID in order
+            # to retrieve the file content and download it.
+            new_url = self.url + '/' + file_id
+            new_params = {'file_id': file_id}
+            resp = requests.get(new_url, params=new_params, auth=self.parent.access_token)
 
-        file_content = resp.content
+            file_content = resp.content
+        else:
+            file_content = None
 
         return file_content, file_name, file_id
 
@@ -764,8 +769,6 @@ class Files(object):
             Generally models.LinkedFile object
 
         """
-        url = BASE_URL + '/files'
-
         # Extract info from params
         title = params['title']
         doc_id = params['id']
@@ -780,7 +783,7 @@ class Files(object):
         headers['Content-Disposition'] = 'attachment; filename=%s' % filename
         headers['Link'] = '<' + BASE_URL + '/documents/' + doc_id + '>; rel="document"'
 
-        API.make_post_request(API(), url, object_fh, params, headers=headers, files=file)
+        API.make_post_request(API(), self.url, object_fh, params, headers=headers, files=file)
 
     def link_file_from_url(self, file, params, file_url):
         """
@@ -802,8 +805,6 @@ class Files(object):
             Generally models.LinkedFile object
 
         """
-        url = BASE_URL + '/files'
-
         # Extract info from params
         title = params['title']
         doc_id = params['id']
@@ -817,11 +818,19 @@ class Files(object):
         headers['Content-Disposition'] = 'attachment; filename=%s' % filename
         headers['Link'] = '<' + BASE_URL + '/documents/' + doc_id + '>; rel="document"'
 
-        API.make_post_request(API(), url, object_fh, params, headers=headers, files=file)
+        API.make_post_request(API(), self.url, object_fh, params, headers=headers, files=file)
 
-    def delete(self):
-        # TODO: make this work
-        pass
+    def delete(self, file_id):
+        url = self.url + '/' + file_id
+        params = {'file_id': file_id}
+        resp = requests.get(url, params=params, auth=self.parent.access_token)
+
+        if not resp.ok:
+            if resp.status_code == 404:
+                raise FileNotFoundError()
+            else:
+                raise ConnectionError('Mendeley error with status code %d' % resp.status_code)
+
 
 class Folders(object):
     def __init__(self, parent):

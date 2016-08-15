@@ -15,9 +15,12 @@ import pickle
 from datetime import datetime
 from timeit import default_timer as ctime
 import os
+import sys
+import json
 
 #Third Party Imports
 import pandas as pd
+from PyQt5.QtWidgets import *
 
 # Local imports
 from .api import API
@@ -133,7 +136,9 @@ class UserLibrary:
         """
         TODO: We could support an indices input, that would return a list
         """        
-        
+
+        # TODO: Change this so that it interacts with the database, not the Pandas dataframe
+
         parse_rows = True
 
         document_json = None
@@ -246,9 +251,7 @@ class UserLibrary:
         
         """
         if check_in_lib and self.check_for_document():
-            #TODO: We might want this to have a different behavior besides printing            
-            print('Already in library.')
-            return
+            raise DuplicateDocumentError('Document already exists in library.')
 
         #----------------------------------------------------------------------
         # Get paper information from DOI
@@ -298,6 +301,70 @@ class UserLibrary:
         if add_pdf:
             pdf_content = pdf_retrieval.get_pdf(paper_info)
             new_document.add_file({'file' : pdf_content})
+
+    def update_file_from_local(self, doi=None, pmid=None):
+        """
+        This is for updating a file in Mendeley without losing the annotations.
+        The file must be saved somewhere locally, and the file path is selected by using
+        a pop up file selection window.
+
+        Parameters
+        ----------
+        doi - DOI of document in library to update
+        pmid - PMID of document in library to update
+
+        """
+        if doi is None and pmid is None:
+            raise KeyError('Please enter a DOI or PMID for the updating document.')
+
+        document = self.get_document(doi=doi, pmid=pmid, return_json=True)
+        if document is None:
+            raise DOINotFoundError('Could not locate DOI in library.')
+
+        new_file_path = self._file_selector()
+        if new_file_path is None:
+            return
+
+        with open(new_file_path, 'rb') as file:
+            file_content = file.read()
+
+        doc_id = document.get('id')
+        saved_annotations_string = self.api.annotations.get(document_id=doc_id)
+        saved_annotations = json.loads(saved_annotations_string)
+
+        # TODO: COME BACK TO THIS
+        import pdb
+        pdb.set_trace()
+
+        has_file = document.get('file_attached')
+        if has_file:
+            _, _, file_id = self.api.files.get_file_content_from_doc_id(doc_id=doc_id, no_content=True)
+            self.api.files.delete(file_id=file_id)
+
+        params = {'title': document.get('title'), 'id': doc_id}
+        self.api.files.link_file(file=file_content, params=params)
+
+        # Reconfirm that the file was added
+        updated = self.get_document(doi=doi, pmid=pmid, return_json=True)
+        has_file = updated.get('file_attached')
+        if not has_file:
+            raise FileNotFoundError('File was not attached.')
+
+        new_annotations_string = self.api.annotations.get(document_id=doc_id)
+        if new_annotations_string is None or saved_annotations_string != new_annotations_string:
+            self.api.annotations.create(annotation_body=saved_annotations)
+
+    def _file_selector(self):
+        app = QApplication(sys.argv)
+        dialog = QFileDialog()
+        # dialog.setFileMode(QFileDialog.DirectoryOnly)
+        dialog.setViewMode(QFileDialog.List)
+        dialog.setDirectory(os.path.expanduser('~'))
+        if dialog.exec_():
+            filenames = dialog.selectedFiles()
+            return filenames[0]
+        else:
+            return None
 
     def _format_doc_entry(self, entry):
         """

@@ -1,13 +1,12 @@
 # Standard imports
 import os
 import sys
-import inspect
 import zipfile
 import math
 import json
 
+# Third party imports
 from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
 
 # Local imports
 from mendeley import client_library
@@ -41,6 +40,11 @@ class Archivist:
             self.root_path = self.file_selector()
         else:
             self.root_path = root_path
+
+        # If the user clicked 'Cancel' on the file path selection
+        # window, do not perform the archive.
+        if self.root_path is None:
+            return
 
         # Go up to root, then down to specific save path
         self.save_folder_path = os.path.join(self.root_path, 'archives')
@@ -219,7 +223,4 @@ class Archivist:
             filenames = dialog.selectedFiles()
             return filenames[0]
         else:
-            return os.path.expanduser('~')
-
-a = Archivist()
-a.archive()
+            return None
