@@ -35,6 +35,8 @@ from . import db_interface
 fstr = utils.float_or_none_to_string
 cld = utils.get_list_class_display
 
+sys.path.append('database')
+
 
 class UserLibrary:
     """
@@ -331,10 +333,8 @@ class UserLibrary:
         doc_id = document.get('id')
         saved_annotations_string = self.api.annotations.get(document_id=doc_id)
         saved_annotations = json.loads(saved_annotations_string)
-
-        # TODO: COME BACK TO THIS
-        import pdb
-        pdb.set_trace()
+        if isinstance(saved_annotations, list):
+            saved_annotations = saved_annotations[0]
 
         has_file = document.get('file_attached')
         if has_file:
@@ -353,6 +353,7 @@ class UserLibrary:
         new_annotations_string = self.api.annotations.get(document_id=doc_id)
         if new_annotations_string is None or saved_annotations_string != new_annotations_string:
             self.api.annotations.create(annotation_body=saved_annotations)
+
 
     def _file_selector(self):
         app = QApplication(sys.argv)

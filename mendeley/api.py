@@ -226,10 +226,6 @@ class API(object):
         # the __call__ method is called.
         resp = self.s.get(url, params=params, auth=self.access_token, headers=headers)
 
-        #if 'annotation' in url:
-        #    import pdb
-        #    pdb.set_trace()
-
         self.last_url = url
         self.last_response = resp
         self.last_params = params
@@ -239,7 +235,7 @@ class API(object):
             print(resp.text)
             print('')
             # TODO: This should be improved
-            raise Exception('Call failed with status: %d' % (resp.status_code))
+            raise Exception('Call failed with status: %d' % resp.status_code)
 
         return self.handle_return(resp, return_type, response_params, object_fh)
 
@@ -778,6 +774,10 @@ class Files(object):
         filename = urllib_quote(title) + '.pdf'
         filename = filename.replace('/', '%2F')
 
+        # Turn file into a dict if it is not already
+        if not isinstance(file, dict):
+            file = {'file': file}
+
         headers = dict()
         headers['Content-Type'] = 'application/pdf'
         headers['Content-Disposition'] = 'attachment; filename=%s' % filename
@@ -823,7 +823,7 @@ class Files(object):
     def delete(self, file_id):
         url = self.url + '/' + file_id
         params = {'file_id': file_id}
-        resp = requests.get(url, params=params, auth=self.parent.access_token)
+        resp = requests.delete(url, params=params, auth=self.parent.access_token)
 
         if not resp.ok:
             if resp.status_code == 404:
