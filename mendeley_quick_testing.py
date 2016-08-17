@@ -5,15 +5,17 @@ Example function calls
 
 import string
 import random
+import sys
+import os
+import json
+
+from PyQt5.QtWidgets import *
+import requests
+
 from mendeley import client_library
 from mendeley import api
 from database import db_logging as db
 from mendeley import integrity
-
-import sys
-import os
-from PyQt5.QtWidgets import *
-
 
 def random_entry():
     d = dict()
@@ -26,7 +28,6 @@ def random_entry():
 
 
 def test_get_pdf(pdf_url):
-    import requests
     resp = requests.get(pdf_url)
     if 'text/html' in resp.headers['Content-Type']:
         with open('test_file.html', 'wb') as file:
@@ -48,21 +49,45 @@ def _file_selector():
         else:
             return None
 
+
+def annotation_maker(document_id):
+    ann = dict()
+    ann['type'] = 'sticky_note'
+    ann['color'] = {'g': 0, 'b': 173, 'r': 255}
+    ann['document_id'] = document_id
+    ann['privacy_level'] = 'private'
+    ann['positions'] = [{'page': 1, 'top_left': {'y': 500, 'x': 120}, 'bottom_right': {'y': 500, 'x': 120}}]
+    ann['text'] = 'test post please ignore'
+    return ann
+
+
+
 doi = '10.1177/1073858414541484'
 doi = '10.1002/bit.25159'
+doi_for_file = '10.1002/biot.201400046'
 
 temp = client_library.UserLibrary(verbose=True)
+m = api.API()
 
 # analyst = integrity.Analysis(temp)
 
-temp.update_file_from_local(doi=doi)
+# temp.update_file_from_local(doi=doi)
+
+thing = temp.get_document(doi=doi_for_file, return_json=True)
+doc_id = thing.get('id')
+ta = m.annotations.get(document_id=doc_id)
+print(ta)
+
+ann = json.dumps(annotation_maker(document_id=doc_id))
+m.annotations.create(annotation_body=ann)
+ta2 = m.annotations.get(document_id=doc_id)
+print(ta2)
+
+random_doc = random_entry()
+# m.documents.create(random_doc)
 
 import pdb
 pdb.set_trace()
-
-
-
-m = api.API()
 
 
 # Adding a real entry

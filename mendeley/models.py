@@ -331,11 +331,9 @@ class DocumentSet(object):
         self.response_params = params
         self.verbose = params['verbose']
         self.page_id = params['page_id']
+        self.json = json
 
         fcn = params['fcn']
-
-        #import pdb
-        #pdb.set_trace()
 
         # TODO: Figure out how to support lazy loading
         # TODO: Support view construction

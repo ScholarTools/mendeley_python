@@ -364,7 +364,7 @@ class Annotations(object):
 
         resp = requests.post(self.url, params=params, headers=headers, auth=self.parent.access_token)
         if not resp.ok:
-            raise ConnectionError('')
+            raise ConnectionError(resp.status_code)
 
 
     def delete(self, **kwargs):
@@ -766,13 +766,16 @@ class Files(object):
 
         """
         # Extract info from params
-        title = params['title']
+        title = params.get('title')
         doc_id = params['id']
         object_fh = models.File
 
         # Get rid of spaces in filename
-        filename = urllib_quote(title) + '.pdf'
-        filename = filename.replace('/', '%2F')
+        if title is not None:
+            filename = urllib_quote(title) + '.pdf'
+            filename = filename.replace('/', '%2F')
+        else:
+            filename = doc_id + '.pdf'
 
         # Turn file into a dict if it is not already
         if not isinstance(file, dict):
