@@ -60,6 +60,9 @@ def annotation_maker(document_id):
     ann['text'] = 'test post please ignore'
     return ann
 
+sd1 = {'title': 'All fields present', 'type': 'journal', 'authors': [{'first_name': 'Jon', 'last_name': 'Snow'}],
+           'tags': ['generated'], 'identifiers': {'doi': '10.1111'}, 'keywords': ['Longclaw', 'Nights Watch'],
+           'pages': '1-10'}
 
 
 doi = '10.1177/1073858414541484'
@@ -69,22 +72,10 @@ doi_for_file = '10.1002/biot.201400046'
 temp = client_library.UserLibrary(verbose=True)
 m = api.API()
 
-# analyst = integrity.Analysis(temp)
+analyst = integrity.Analysis(temp)
+analyst.validate_dois()
 
 # temp.update_file_from_local(doi=doi)
-
-thing = temp.get_document(doi=doi_for_file, return_json=True)
-doc_id = thing.get('id')
-ta = m.annotations.get(document_id=doc_id)
-print(ta)
-
-ann = json.dumps(annotation_maker(document_id=doc_id))
-m.annotations.create(annotation_body=ann)
-ta2 = m.annotations.get(document_id=doc_id)
-print(ta2)
-
-random_doc = random_entry()
-# m.documents.create(random_doc)
 
 import pdb
 pdb.set_trace()
@@ -120,22 +111,10 @@ m.documents.create(ae)
 #print(doc_data)
 
 
-# Testing the annotation retrieval function
-doc_doi = '10.1016/S0304-3991(00)00076-0'
-#doc = temp.get_document(doi=doc_doi, return_json=True)
 
-#document_id = doc.get('id')
-
-
-db_doi = '10.1111/j.1748-1716.1980.tb06578.x'
-db_doc = db.get_saved_info(db_doi)
-m_doc = temp.get_document(db_doi)
-
-
-#
-# New objective - enable exporting and archiving of Mendeley library
-#
-
+# db_doi = '10.1111/j.1748-1716.1980.tb06578.x'
+# db_doc = db.get_saved_info(db_doi)
+# m_doc = temp.get_document(db_doi)
 
 
 

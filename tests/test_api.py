@@ -133,7 +133,7 @@ def test_doc_update():
     except Exception as exc:
         assert False, str(exc)
     else:
-        updated = m.documents.get(**full_doc)
+        updated = m.documents.get(**full_doc, view='all')
         notes = updated.json[0].get('notes')
         if notes is None or notes != 'Test notes.':
             assert False, notes
@@ -165,7 +165,9 @@ def test_file_retrieval():
     except Exception as exc:
         assert False, str(exc)
     else:
-        if file_content == content:
+        print(content)
+        print(file_content)
+        if content in file_content:
             pass
         else:
             assert False, 'File contents do not match.'
@@ -207,8 +209,6 @@ if __name__ == '__main__':
     module_name = sys.modules[__name__].__file__
 
     sys.path.append('database')
-
-    nose.tools.istest(test_doc_creation)
 
     result = nose.run(argv=[sys.argv[0], module_name, '-v'])
 

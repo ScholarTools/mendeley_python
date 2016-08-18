@@ -487,12 +487,18 @@ class Documents(object):
         convert_datetime_to_string(kwargs, 'deleted_since')
 
         view = kwargs.get('view')
+        # If no view specified, set default to 'all'
+        if view is None:
+            view = 'all'
 
         if 'deleted_since' in kwargs:
             view = 'deleted'
 
         limit = kwargs.get('limit', 20)
         response_params = {'fcn': document_fcns[view], 'view': view, 'limit': limit, 'page_id':0}
+
+        # The 'view' parameter needs to be in the params.
+        kwargs['view'] = view
 
         verbose = _process_verbose(self.parent,kwargs,response_params)
         if verbose:

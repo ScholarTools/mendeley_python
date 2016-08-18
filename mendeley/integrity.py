@@ -19,27 +19,33 @@ class Analysis(object):
         self.session = Session()
         self.total_paper_count = self.session.query(tables.MainPaperInfo).count()
 
-        self.without_dois = None
-        self.without_dois_count = None
-        self.without_pmids = None
-        self.without_pmids_count = None
-        self.without_files = None
-        self.without_files_count = None
-        self.without_file_info = None
-        self.without_file_info_count = None
-        self.duplicate_doi_dict = None
-        self.duplicate_entries = None
+        self.without_dois = -1
+        self.without_dois_count = -1
+        self.without_pmids = -1
+        self.without_pmids_count = -1
+        self.without_files = -1
+        self.without_files_count = -1
+        self.without_file_info = -1
+        self.without_file_info_count = -1
+        self.duplicate_doi_dict = -1
+        self.duplicate_entries = -1
+        self.invalid_doi_count = -1
 
 
         if self.total_paper_count == 0:
             raise LookupError('No documents found in database. Please sync with library '
                               'or add documents before performing analysis.')
 
+    def run(self):
+        '''
+        Performs all of the analysis methods.
+        Returns nothing; instead sets class attributes.
+        '''
         self.without_dois_count = self.missing_doi_search()
         self.without_pmids_count = self.missing_pmid_search()
         (self.without_files_count, self.without_file_info_count) = self.missing_file_search()
         self.duplicate_doi_count = self.duplicate_doi_search()
-        #self.invalid_doi_count = self.validate_DOIs()
+        self.invalid_doi_count = self.validate_dois()
 
     def missing_doi_search(self):
         without_dois = self.session.query(tables.MainPaperInfo).filter((tables.MainPaperInfo.in_lib == 1)
@@ -100,15 +106,6 @@ class Analysis(object):
         docs_with_dois = self.session.query(tables.MainPaperInfo).filter((tables.MainPaperInfo.in_lib == 1)
                                                                     & (tables.MainPaperInfo.doi != None)
                                                                     & (tables.MainPaperInfo.doi != '')).all()
-        '''
-        # TODO: Well, this doesn't work.
-        # Use multithreading to check multiple DOIs at once
-        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as e:
-            e.map(self._doi_validate_helper, docs_with_dois)
-        '''
-
-        # TODO: FIGURE OUT WHY SO MANY REQUESTS ARE RETURNING 404
-        # Maybe it's not handling redirects properly?
 
         for doc in docs_with_dois:
             self._doi_validate_helper(doc)
@@ -119,21 +116,38 @@ class Analysis(object):
         invalid_doi_count = self.session.query(tables.MainPaperInfo).filter((tables.MainPaperInfo.in_lib == 1)
                                                                     & (tables.MainPaperInfo.valid_doi == 0)).count()
 
-        print('')
+        self.invalid_doi_count = invalid_doi_count
+        self.valid_doi_count = self.total_paper_count - invalid_doi_count
+
         return invalid_doi_count
 
     def _doi_validate_helper(self, db_object):
         doi = db_object.doi
         url = 'http://dx.doi.org/' + urllib_quote(doi)
         resp = requests.get(url)
+
+        # Should probably get rid of these print statements
+        # in favor of a progress bar?
         print(resp.status_code)
         print('Entered URL: ' + url)
         print('Response URL: ' + resp.url)
         print()
+
         if resp.ok:
             db_object.valid_doi = 1
+        # ScienceDirect often does not allow requests to go directly to an article page.
+        # It will return status code 404, but will still end up going to a ScienceDirect
+        # URL if the DOI is valid and corresponds with a ScienceDirect-hosted paper
+        elif resp.status_code == 404:
+            if 'sciencedirect' in resp.url or 'ScienceDirect' in resp.content:
+                db_object.valid_doi = 1
+            else:
+                db_object.valid_doi = 0
         else:
             db_object.valid_doi = 0
+
+    def _sentence_case_fix(self):
+        pass
 
     def __repr__(self):
         return u'' \
@@ -143,4 +157,5 @@ class Analysis(object):
             'Documents without files: %d\n' % self.without_files_count + \
             'Documents that may be missing files: %d\n' % self.without_file_info_count + \
             'DOIs that are duplicated: %d\n' % self.duplicate_doi_count + \
-            'Invalid DOIs: For number of invalid DOIs, run the Analysis.validate_DOIs method.'
+            'DOIs that are invalid: %d\n' % self.invalid_doi_count + \
+            'If these categories return -1, please run Analysis.run()'
