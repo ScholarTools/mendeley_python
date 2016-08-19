@@ -131,6 +131,9 @@ def check_multiple_constraints(params):
     return query_results
 
 
+def delete_reference(ref):
+    db.delete_reference(ref)
+
 
 def _make_paper_info(info):
     if isinstance(info, PaperInfo):
