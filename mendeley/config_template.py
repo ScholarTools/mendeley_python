@@ -29,6 +29,12 @@ class Oauth2Credentials(object):
     redirect_url = 'https://localhost'
 
 
+# Additionally, a development token is required.
+#See https://development-tokens.mendeley.com/ to generate a new token, as needed.
+#
+#Essentially this says, use at your own risk
+dev_token = ''
+
 #-----------------------------------------------------------------
 # Optional but recommended for personal methods
 #

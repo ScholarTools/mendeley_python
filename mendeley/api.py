@@ -63,6 +63,7 @@ import requests
 from . import auth
 from . import models
 from . import utils
+from . import user_config
 
 #TODO: I'd like to switch to importing specific errors ...
 from .errors import *
@@ -212,12 +213,12 @@ class API(object):
 
         return_type = params.pop('_return_type', self.default_return_type)
 
-        # This was newly introduced, apparently? Each dev token is only good for 90 days
+        # Each dev token is only good for 90 days
         # https://development-tokens.mendeley.com/
-        dev_token = utils.dev_token
+        dev_token = user_config.dev_token
 
         if headers is None:
-            headers = {'Development-Token' : dev_token}
+            headers = {'Development-Token': dev_token}
         else:
             headers['Development-Token'] = dev_token
 

@@ -72,8 +72,8 @@ doi_for_file = '10.1002/biot.201400046'
 temp = client_library.UserLibrary(verbose=True)
 m = api.API()
 
-analyst = integrity.Analysis(temp)
-analyst.validate_dois()
+# analyst = integrity.Analysis(temp)
+# analyst.validate_dois()
 
 # temp.update_file_from_local(doi=doi)
 

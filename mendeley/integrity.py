@@ -126,12 +126,14 @@ class Analysis(object):
         url = 'http://dx.doi.org/' + urllib_quote(doi)
         resp = requests.get(url)
 
+        print('Validating DOIs in library')
+
         # Should probably get rid of these print statements
         # in favor of a progress bar?
-        print(resp.status_code)
-        print('Entered URL: ' + url)
-        print('Response URL: ' + resp.url)
-        print()
+        # print(resp.status_code)
+        # print('Entered URL: ' + url)
+        # print('Response URL: ' + resp.url)
+        # print()
 
         if resp.ok:
             db_object.valid_doi = 1
