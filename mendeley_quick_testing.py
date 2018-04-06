@@ -5,9 +5,20 @@ Example function calls
 
 import string
 import random
+import sys
+import os
+import json
+
+from PyQt5.QtWidgets import *
+import requests
+
 from mendeley import client_library
 from mendeley import api
 from database import db_logging as db
+<<<<<<< HEAD
+=======
+from mendeley import integrity
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 
 def random_entry():
     d = dict()
@@ -18,8 +29,8 @@ def random_entry():
     d["tags"] = ["cool paper"]
     return d
 
+
 def test_get_pdf(pdf_url):
-    import requests
     resp = requests.get(pdf_url)
     if 'text/html' in resp.headers['Content-Type']:
         with open('test_file.html', 'wb') as file:
@@ -29,14 +40,54 @@ def test_get_pdf(pdf_url):
             file.write(resp.content)
 
 
+def _file_selector():
+        app = QApplication(sys.argv)
+        dialog = QFileDialog()
+        dialog.setFileMode(QFileDialog.DirectoryOnly)
+        dialog.setViewMode(QFileDialog.List)
+        dialog.setDirectory(os.path.expanduser('~'))
+        if dialog.exec_():
+            filenames = dialog.selectedFiles()
+            return filenames[0]
+        else:
+            return None
+
+
+def annotation_maker(document_id):
+    ann = dict()
+    ann['type'] = 'sticky_note'
+    ann['color'] = {'g': 0, 'b': 173, 'r': 255}
+    ann['document_id'] = document_id
+    ann['privacy_level'] = 'private'
+    ann['positions'] = [{'page': 1, 'top_left': {'y': 500, 'x': 120}, 'bottom_right': {'y': 500, 'x': 120}}]
+    ann['text'] = 'test post please ignore'
+    return ann
+
+sd1 = {'title': 'All fields present', 'type': 'journal', 'authors': [{'first_name': 'Jon', 'last_name': 'Snow'}],
+           'tags': ['generated'], 'identifiers': {'doi': '10.1111'}, 'keywords': ['Longclaw', 'Nights Watch'],
+           'pages': '1-10'}
+
+
 doi = '10.1177/1073858414541484'
+doi = '10.1002/bit.25159'
+doi_for_file = '10.1002/biot.201400046'
 
 temp = client_library.UserLibrary(verbose=True)
+<<<<<<< HEAD
 #print([x['title'] for x in temp.raw])
 
+=======
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 m = api.API()
 
-#m.folders.create('New Folder')
+# analyst = integrity.Analysis(temp)
+# analyst.validate_dois()
+
+# temp.update_file_from_local(doi=doi)
+
+import pdb
+pdb.set_trace()
+
 
 # Adding a real entry
 '''
@@ -68,6 +119,7 @@ m.documents.create(ae)
 #print(doc_data)
 
 
+<<<<<<< HEAD
 # Testing the annotation retrieval function
 doc_doi = '10.1016/S0304-3991(00)00076-0'
 #doc = temp.get_document(doi=doc_doi, return_json=True)
@@ -87,6 +139,15 @@ m_doc = temp.get_document(db_doi)
 
 
 
+=======
+
+# db_doi = '10.1111/j.1748-1716.1980.tb06578.x'
+# db_doc = db.get_saved_info(db_doi)
+# m_doc = temp.get_document(db_doi)
+
+
+
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 test_file = 'http://onlinelibrary.wiley.com/doi/10.1002/biot.201400828/pdf'
 wy_test_file = 'http://onlinelibrary.wiley.com/doi/10.1002/biot.201400046/pdf'
 sd_test_file = 'http://ac.els-cdn.com/S0006899313013048/1-s2.0-S0006899313013048-main.pdf?_tid=d0627c6c-22b6-11e6-bf6e-00000aab0f27&acdnat=1464208105_97b45bc2a955e54bd12cadd26e2e053c'

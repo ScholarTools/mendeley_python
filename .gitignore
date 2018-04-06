@@ -4,6 +4,11 @@
 /mendeley/acct_config.py
 /.idea/
 /data/
+/archives/
+
+*.db
+*.zip
+*.pdf
 
 *.db
 

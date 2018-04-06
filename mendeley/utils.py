@@ -7,11 +7,14 @@ from . import config
 import os
 import inspect
 
+<<<<<<< HEAD
 #See https://development-tokens.mendeley.com/
 #
 #Essentially this says, use at your own risk
 dev_token = 'ODUsMTQ3MjA0NDg5OTIwNSxTLWdkT1lsS1BwN2h0ekkxeHlyTWJCUG9NR1k'
 
+=======
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 def float_or_none_to_string(x):
     if x is None:
         return 'None'

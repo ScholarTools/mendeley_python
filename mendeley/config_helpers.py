@@ -61,6 +61,7 @@ class Config(object):
         self.validate()
     
     def get_user(self,user_name):
+<<<<<<< HEAD
         """
         Calling Forms
         -------------
@@ -74,6 +75,8 @@ class Config(object):
         self.get_user(user_name)
 
         """
+=======
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 
         if user_name is None:
             return self.default_user
@@ -81,9 +84,12 @@ class Config(object):
         if user_name == 'default':
             return self.default_user
             
+<<<<<<< HEAD
         if self.default_user.user_name == user_name:
             return self.default_user
             
+=======
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
         if not hasattr(self,'other_users'):
             raise Exception('Missing user and other_users is not specified in the config file')
             
@@ -148,8 +154,11 @@ class Config(object):
             self.other_users = config.other_users
 
     # TODO: rewrite without using utils
+<<<<<<< HEAD
     # Utils currently calls back into this class
     # so we want to avoid circular dependencies ...
+=======
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
     '''
     def __repr__(self):
         pv = ['Oauth2Credentials', cld(self.Oauth2Credentials), 

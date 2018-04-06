@@ -15,8 +15,12 @@ to load the config file.
 """
 
 #If specified, this specifies that the config file should be loaded
+<<<<<<< HEAD
 #from the specified location. This should be the only value in the file
 #if it is present. 
+=======
+#from the specified location. 
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 config_location = 'C:\users\my_mendeley_config.py'
 
 
@@ -30,6 +34,15 @@ class Oauth2Credentials(object):
     redirect_url = 'https://localhost'
 
 
+<<<<<<< HEAD
+=======
+# Additionally, a development token is required.
+#See https://development-tokens.mendeley.com/ to generate a new token, as needed.
+#
+#Essentially this says, use at your own risk
+dev_token = ''
+
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 #-----------------------------------------------------------------
 # Optional but recommended for personal methods
 #

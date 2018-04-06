@@ -15,9 +15,18 @@ import pickle
 from datetime import datetime
 from timeit import default_timer as ctime
 import os
+<<<<<<< HEAD
 
 #Third Party Imports
 import pandas as pd
+=======
+import sys
+import json
+
+#Third Party Imports
+import pandas as pd
+from PyQt5.QtWidgets import *
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 
 # Local imports
 from .api import API
@@ -27,9 +36,18 @@ from . import utils
 from .optional import rr
 from .optional import pdf_retrieval
 from . import db_interface
+<<<<<<< HEAD
 
 fstr = utils.float_or_none_to_string
 cld = utils.get_list_class_display
+=======
+# from . import archive_library
+
+fstr = utils.float_or_none_to_string
+cld = utils.get_list_class_display
+
+sys.path.append('database')
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 
 
 class UserLibrary:
@@ -100,6 +118,13 @@ class UserLibrary:
         self.docs = sync_result.docs
         self._save()
 
+<<<<<<< HEAD
+=======
+    # def archive(self):
+    #     archivist = archive_library.Archivist(library=self, api=self.api)
+    #     archivist.archive()
+
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
     def get_document(self, doi=None, pmid=None, index=None, return_json=False, allow_multiple=False, _check=False):
         """
         Returns the document (i.e. metadata) based on a specified identifier.
@@ -123,6 +148,7 @@ class UserLibrary:
             If return_json is True
             
         If allow_multiple is True, then a list of results will be returned.
+<<<<<<< HEAD
         """
         
         """
@@ -295,6 +321,241 @@ class UserLibrary:
         if add_pdf:
             pdf_content = pdf_retrieval.get_pdf(paper_info)
             new_document.add_file({'file' : pdf_content})
+=======
+        """
+        
+        """
+        TODO: We could support an indices input, that would return a list
+        """        
+
+        # TODO: Change this so that it interacts with the database, not the Pandas dataframe
+
+        parse_rows = True
+
+        document_json = None
+
+        if index is not None:
+            if index < 0 or index >= len(self.docs):
+                if _check and index > 0:
+                    return False
+                else:
+                    raise Exception('Out of bounds index request')
+            elif _check:
+                return True
+                
+            #For an index, we expect a single result
+            document_json = [self.docs.ix[index]['json']]
+            parse_rows = False
+
+        elif doi is not None:
+            #All dois in the library are stored as lower
+            df_rows = self.docs[self.docs['doi'] == doi.lower()]
+        elif pmid is not None:
+            df_rows = self.docs[self.docs['pmid'] == pmid]
+        else:
+            raise Exception('get_document: Unrecognized identifier search option')
+
+
+        # Handling of the parsing of the rows
+        # ------------------------------------
+        if parse_rows:
+            # We parse rows when the rows to grab has not been specified
+            # explicitly and we need to determine if we found any matches
+            rows_json = df_rows['json']
+            if len(rows_json) == 1:
+                document_json = [rows_json[0]]
+            elif len(rows_json) == 0:
+                if _check:
+                    return False
+                else:
+                    if doi is not None:
+                        raise DocNotFoundError('DOI: "%s" not found in library' % doi)
+                    elif pmid is not None:
+                        raise DocNotFoundError('PMID: "%s" not found in library' % pmid)
+                    else:
+                        raise Exception('Code logic error, this should never run')
+            else: 
+                if allow_multiple:
+                    document_json = [x for x in rows_json]
+                elif _check:
+                    return False
+                else:
+                    if doi is not None:
+                        raise Exception('Multiple DOIs found for doi: "%s"' % doi)
+                    elif pmid is not None:
+                        raise Exception('Multiple PMIDs found for pmid: %s"' % pmid)
+                    else:
+                        raise Exception('Code logic error, this should never run')
+              
+        # Returning the results
+        # ------------------------
+        if _check:
+            return True
+        elif return_json:
+            if allow_multiple:
+                return document_json
+            else:
+                return document_json[0]
+        else:
+            docs = [models.Document(x, self.api) for x in document_json]
+            if allow_multiple:
+                return docs
+            else:
+                return docs[0]
+
+    def check_for_document(self, doi=None, pmid=None):
+        """
+        Attempts to call self.get_document and checks for error.
+        If no error, the DOI has been found.
+
+        Parameters
+        ----------
+        doi - string (default None)
+            Document's DOI 
+        pmid - string (default None)
+
+        Returns
+        -------
+        bool - True if DOI is found in the Mendeley library. False otherwise.
+        """
+        
+        return self.get_document(doi=doi,pmid=pmid,_check=True)
+
+    def add_to_library(self, doi=None, pmid=None, check_in_lib=False, add_pdf=True, file_path=None):
+        """
+        
+        Parameters
+        ----------
+        doi : string
+        check_in_lib : bool
+            If true, 
+        add_pdf : bool
+        
+        
+        Improvements
+        ------------
+        * 
+        - allow adding via PMID
+        - pdf entry should be optional with default true
+        - also need to handle adding pdf if possible but no error
+        if not possible
+        
+        """
+        if check_in_lib and self.check_for_document():
+            raise DuplicateDocumentError('Document already exists in library.')
+
+        #----------------------------------------------------------------------
+        # Get paper information from DOI
+        """
+        Even then, this requires a bit of thinking. Why are we asking rr for
+        paper information? Perhaps we need another repository ...
+             - Pubmed
+             - Crossref
+             - others????
+
+        """
+
+        paper_info = rr.retrieve_all_info(input=doi, input_type='doi')
+
+        # Turn the BaseEntry object into a formatted dict for submission
+        # to the Mendeley API
+        formatted_entry = self._format_doc_entry(paper_info.entry)
+
+        # Create the new document
+        new_document = self.api.documents.create(formatted_entry)
+
+        """
+        add_pdf
+        
+        * I want to be able to specify the path to the file to add.
+        * Perhaps instead we want:
+            pdf = file_path
+            pdf = 'must_retrieve'
+            pdf = 'retrieve_or_request' - If not available, make a request for it
+            pdf = 'retrive_if_possible'
+            
+        I'm not thrilled with this specific interface, but I'd like something
+        like this.
+        
+        We might want an additional package that focuses on retrieving pdfs.
+        The big question is how to support letting these interfaces interact
+        efficiently without doing things multiple times. We can answer this 
+        at a later time.
+        
+        pdf retrieval:
+            - Interlibrary loan
+            - ScholarSolutions
+            - PyPub
+        """
+
+        # Get pdf
+        if add_pdf:
+            pdf_content = pdf_retrieval.get_pdf(paper_info)
+            new_document.add_file({'file' : pdf_content})
+
+    def update_file_from_local(self, doi=None, pmid=None):
+        """
+        This is for updating a file in Mendeley without losing the annotations.
+        The file must be saved somewhere locally, and the file path is selected by using
+        a pop up file selection window.
+
+        Parameters
+        ----------
+        doi - DOI of document in library to update
+        pmid - PMID of document in library to update
+
+        """
+        if doi is None and pmid is None:
+            raise KeyError('Please enter a DOI or PMID for the updating document.')
+
+        document = self.get_document(doi=doi, pmid=pmid, return_json=True)
+        if document is None:
+            raise DOINotFoundError('Could not locate DOI in library.')
+
+        new_file_path = self._file_selector()
+        if new_file_path is None:
+            return
+
+        with open(new_file_path, 'rb') as file:
+            file_content = file.read()
+
+        doc_id = document.get('id')
+        saved_annotations_string = self.api.annotations.get(document_id=doc_id)
+        saved_annotations = json.loads(saved_annotations_string)
+        if isinstance(saved_annotations, list):
+            saved_annotations = saved_annotations[0]
+
+        has_file = document.get('file_attached')
+        if has_file:
+            _, _, file_id = self.api.files.get_file_content_from_doc_id(doc_id=doc_id, no_content=True)
+            self.api.files.delete(file_id=file_id)
+
+        params = {'title': document.get('title'), 'id': doc_id}
+        self.api.files.link_file(file=file_content, params=params)
+
+        # Reconfirm that the file was added
+        updated = self.get_document(doi=doi, pmid=pmid, return_json=True)
+        has_file = updated.get('file_attached')
+        if not has_file:
+            raise FileNotFoundError('File was not attached.')
+
+        new_annotations_string = self.api.annotations.get(document_id=doc_id)
+        if new_annotations_string is None or saved_annotations_string != new_annotations_string:
+            self.api.annotations.create(annotation_body=saved_annotations)
+
+
+    def _file_selector(self):
+        app = QApplication(sys.argv)
+        dialog = QFileDialog()
+        # dialog.setFileMode(QFileDialog.DirectoryOnly)
+        dialog.setViewMode(QFileDialog.List)
+        dialog.setDirectory(os.path.expanduser('~'))
+        if dialog.exec_():
+            filenames = dialog.selectedFiles()
+            return filenames[0]
+        else:
+            return None
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 
     def _format_doc_entry(self, entry):
         """
@@ -573,12 +834,19 @@ class Sync(object):
 
         start_modified_time = ctime()
         
+<<<<<<< HEAD
         doc_set = self.api.documents.get(modified_since=newest_modified_time, view='all',limit=0)
         
         nu_docs_as_json = [x.json for x in doc_set.docs]
         
         #TODO: Does this need to be classed?
         #If not, build json view above view="json"
+=======
+        # TODO: Include -1 here ...
+        doc_set = self.api.documents.get(modified_since=newest_modified_time, view='all')
+        
+        raw_au_docs = [x.json for x in doc_set]
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
         self.new_and_updated_docs = doc_set.docs
         self.time_modified_check = ctime() - start_modified_time
 
@@ -593,6 +861,19 @@ class Sync(object):
         new_rows_df = df[is_new_mask]
         updated_rows_df = df[~is_new_mask]
 
+<<<<<<< HEAD
+=======
+        # Log the new entries in the database
+        for x in range(len(new_rows_df)):
+            row = new_rows_df.iloc[x]
+            db_interface.add_to_db(row)
+
+        # Log the updated entries in the database
+        for x in range(len(updated_rows_df)):
+            row = updated_rows_df.iloc[x]
+            db_interface.update_db_entry(row)
+
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
         if len(new_rows_df) > 0:
             self.verbose_print('%d new documents found' % len(new_rows_df))
             self.docs = self.docs.append(new_rows_df)
@@ -638,8 +919,13 @@ class Sync(object):
         trash_start_time = ctime()
         self.verbose_print('Checking trash')
 
+<<<<<<< HEAD
         trash_set = self.api.trash.get(limit=0, view='ids')
         self.trash_ids = trash_set.docs
+=======
+        trash_set = self.api.trash.get(limit=500, view='all')
+        self.trash_ids = [x.doc_id for x in trash_set]
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 
         self.verbose_print('Finished checking trash, %d documents found' % len(self.trash_ids))
         self.time_trash_retrieval = ctime() - trash_start_time
@@ -694,6 +980,7 @@ def _raw_to_data_frame(raw, include_json=True):
     been set. This can cause headaches in later processing.
     """    
     
+<<<<<<< HEAD
     
 
     # Note that I'm not using the local attribute
@@ -702,15 +989,32 @@ def _raw_to_data_frame(raw, include_json=True):
     
     #https://github.com/pandas-dev/pandas/issues/1972
     df = df.where(pd.notnull(df), None)
+=======
+    # Note that I'm not using the local attribute
+    # as we can then use this for updating new information
+    df = pd.DataFrame(raw)
+    
+    #dtype=str   => doesn't work, wtf
+    #dtype={'identifiers':object}    => doesn't work, wtf
+    
+    #TODO: This is a complete mess with type inference ...    
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
     
     #TODO: The identifiers column may not exist :/ which would cause an error
     #below
 
+<<<<<<< HEAD
     #I'm hoping this is redundant given fillna above
     #Our goal with this line is that
     #https://github.com/pydata/pandas/issues/1972
     #df['identifiers'] = df['identifiers'].where(pd.notnull(df['identifiers']),None)    
         
+=======
+    #Our goal with this line is that
+    #https://github.com/pydata/pandas/issues/1972
+    df['identifiers'] = df['identifiers'].where(pd.notnull(df['identifiers']),None)    
+    
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
     # len(df) == 0 means that no documents were found.
     # Further operations on df would fail.
     if len(df) == 0:

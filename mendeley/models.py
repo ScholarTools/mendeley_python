@@ -83,7 +83,14 @@ class ResponseObject(object):
         """
         if name in self.fields():
             if isinstance(self.json, list):
+<<<<<<< HEAD
                 raise TypeError('oh no, JSON is a list...')
+=======
+                if len(self.json) > 0:
+                    self.json = self.json[0]
+                else:
+                    self.json = {}
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
             value = self.json.get(name)
             
             #We don't call object construction methods on None values
@@ -328,6 +335,10 @@ class DocumentSet(object):
         self.response_params = params
         self.verbose = params['verbose']
         self.page_id = params['page_id']
+<<<<<<< HEAD
+=======
+        self.json = json
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 
         fcn = params['fcn']
 
@@ -467,6 +478,7 @@ class File(ResponseObject):
             'id: %s\n' % self.file_id + \
             'file_location: %s\n' % self.file_location + \
             'document_id %s\n' % self.__getattr__('document_id')
+<<<<<<< HEAD
 
 class Folder(object):
     """
@@ -484,6 +496,9 @@ class Folder(object):
         pass
 
     pass
+=======
+
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 
 class Document(ResponseObject):
     """
@@ -703,6 +718,10 @@ class Document(ResponseObject):
             return pv
         else:
             return utils.property_values_to_string(pv)
+<<<<<<< HEAD
+=======
+
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 
 
 

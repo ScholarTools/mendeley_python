@@ -63,6 +63,7 @@ import requests
 from . import auth
 from . import models
 from . import utils
+from . import user_config
 
 #TODO: I'd like to switch to importing specific errors ...
 from .errors import *
@@ -220,12 +221,19 @@ class API(object):
 
         return_type = params.pop('_return_type', self.default_return_type)
 
-        # This was newly introduced, apparently? Each dev token is only good for 90 days
+        # Each dev token is only good for 90 days
         # https://development-tokens.mendeley.com/
+<<<<<<< HEAD
         dev_token = utils.dev_token
 
         if headers is None:
             headers = {'Development-Token' : dev_token}
+=======
+        dev_token = user_config.dev_token
+
+        if headers is None:
+            headers = {'Development-Token': dev_token}
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
         else:
             headers['Development-Token'] = dev_token
 
@@ -233,16 +241,20 @@ class API(object):
         # will call the access_token prior to sending the request. Specifically
         # the __call__ method is called.
         resp = self.s.get(url, params=params, auth=self.access_token, headers=headers)
+<<<<<<< HEAD
 
         #if 'annotation' in url:
         #    import pdb
         #    pdb.set_trace()
+=======
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 
         self.last_url = url
         self.last_response = resp
         self.last_params = params
 
         if not resp.ok:
+<<<<<<< HEAD
             _print_error("----------------   Error Details   ----------------")
             _print_error("Mendeley API Get Requested Failed")
             _print_error("Url: %s" % url)
@@ -269,6 +281,36 @@ class API(object):
         resp = self.s.patch(url, data=params, auth=self.access_token, headers=headers, files=files)
 
         if not resp.ok:
+=======
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
+            # if r.status_code != good_status:
+            print(resp.text)
+            print('')
+            # TODO: This should be improved
+<<<<<<< HEAD
+            raise Exception('Call failed with status: %d' % (resp.status_code))
+
+        return self.handle_return(resp, return_type, response_params, object_fh)
+=======
+            raise Exception('Call failed with status: %d' % resp.status_code)
+
+        return self.handle_return(resp, return_type, response_params, object_fh)
+
+    def make_patch_request(self, url, object_fh, params, response_params=None, headers=None, files=None):
+        #
+        # http://docs.python-requests.org/en/latest/user/advanced/#streaming-uploads
+
+        if params is not None:
+            return_type = params.pop('_return_type', self.default_return_type)
+        else:
+            return_type = self.default_return_type
+
+        if files is None:
+            params = json.dumps(params)
+
+        resp = self.s.patch(url, data=params, auth=self.access_token, headers=headers, files=files)
+
+        if not resp.ok:
             # if r.status_code != good_status:
             print(resp.text)
             print('')
@@ -276,6 +318,7 @@ class API(object):
             raise Exception('Call failed with status: %d' % (resp.status_code))
 
         return self.handle_return(resp, return_type, response_params, object_fh)
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 
     def handle_return(self, req, return_type, response_params, object_fh):
         if return_type is 'object':
@@ -372,6 +415,52 @@ class Annotations(object):
         https://api.mendeley.com/apidocs/docs#!/annotations/createAnnotation
         """
         pass
+
+    def delete(self, **kwargs):
+        url = BASE_URL + '/annotations'
+
+
+        headers = {'Content-Type' : 'application/vnd.mendeley-folder.1+json'}
+        pass
+
+class Annotations(object):
+    
+    def __init__(self, parent):
+        self.parent = parent
+        self.url = BASE_URL + '/annotations'
+
+    def get(self, document_id=None):
+        """
+        https://api.mendeley.com/apidocs#!/annotations/getAnnotations
+        """
+
+        if document_id is None:
+            raise LookupError('Must enter a document ID to retrieve annotations.')
+
+        params = dict()
+        params['document_id'] = document_id
+        params['include_trashed'] = False
+
+        headers = {'Content-Type' : 'application/vnd.mendeley-annotation.1+json'}
+
+        # return self.parent.make_get_request(url, models.Annotation, params, headers=headers)
+        resp = requests.get(self.url, params=params, headers=headers, auth=self.parent.access_token)
+        if resp.status_code != 200:
+            return []
+        else:
+            return resp.text
+
+    def create(self, annotation_body):
+        """
+        https://api.mendeley.com/apidocs/docs#!/annotations/createAnnotation
+        """
+        params = {'body': annotation_body}
+        headers = {'Content-Type': 'application/vnd.mendeley-annotation.1+json'}
+
+        resp = requests.post(self.url, params=params, headers=headers, auth=self.parent.access_token)
+        if not resp.ok:
+            raise ConnectionError(resp.status_code)
+
 
     def delete(self, **kwargs):
         url = BASE_URL + '/annotations'
@@ -509,6 +598,7 @@ class Documents(object):
               #   'deleted': models.DeletedDocument
                #  'ids': models.get_ids_only
         view = kwargs.get('view')
+<<<<<<< HEAD
         rp_view = view
         rp_doc_fcn = document_fcns[view]
 
@@ -541,6 +631,24 @@ class Documents(object):
                 print("Requesting up to %d documents from Mendeley with params: %s" % (limit, kwargs))
   
         result = self.parent.make_get_request(url, models.DocumentSet.create, kwargs, response_params)
+=======
+        # If no view specified, set default to 'all'
+        if view is None:
+            view = 'all'
+
+        if 'deleted_since' in kwargs:
+            view = 'deleted'
+
+        limit = kwargs.get('limit', 20)
+        response_params = {'fcn': document_fcns[view], 'view': view, 'limit': limit, 'page_id':0}
+
+        # The 'view' parameter needs to be in the params.
+        kwargs['view'] = view
+
+        verbose = _process_verbose(self.parent,kwargs,response_params)
+        if verbose:
+            print("Requesting up to %d documents from Mendeley with params: %s" % (limit, kwargs))
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 
         if limit == 0:
             result.get_all_docs()       
@@ -702,6 +810,7 @@ class Documents(object):
         https://api.mendeley.com/apidocs#!/documents/updateDocument
         """
         url = BASE_URL + '/documents/' + doc_id
+<<<<<<< HEAD
 
         headers = dict()
         headers['Content-Type'] = 'application/vnd.mendeley-document.1+json'
@@ -862,6 +971,244 @@ class Folders(object):
 
         return self.parent.make_post_request(url, models.Folder, params, headers=headers)
 
+=======
+
+        headers = dict()
+        headers['Content-Type'] = 'application/vnd.mendeley-document.1+json'
+
+        return self.parent.make_patch_request(url, models.Document, new_data, headers=headers)
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
+
+    def move_to_trash(self, doc_id):
+
+        url = BASE_URL + '/documents/' + doc_id + '/trash'
+
+<<<<<<< HEAD
+class Profiles(object):
+    
+    def __init__(self,parent):
+        self.parent = parent
+        
+        #TODO: If public, provide no "me" method
+        
+    def get(self, **kwargs):
+        """
+        https://api.mendeley.com/apidocs/docs#!/profiles/getProfiles
+        https://api.mendeley.com/apidocs/docs#!/profiles/get
+        
+        """
+        pass
+    
+    def me(self):
+        """
+        https://api.mendeley.com/apidocs/docs#!/profiles/getProfileForLoggedInUser
+        """
+        pass
+    
+    #def update_my_profile()   => Let's implement this in the profile model
+    
+
+
+class Trash(object):
+    def __init__(self, parent):
+        self.parent = parent
+
+=======
+        headers = dict()
+        headers['Content-Type'] = 'application/vnd.mendeley-document.1+json'
+
+        resp =  self.parent.s.post(url, headers=headers, auth = self.parent.access_token)
+        return
+
+class Files(object):
+    
+    def __init__(self, parent):
+        self.parent = parent
+        self.url = BASE_URL + '/files'
+
+    def get_single(self, **kwargs):
+        """
+        # https://api.mendeley.com/apidocs#!/annotations/getFiles
+
+        THIS DOESN'T REALLY DO ANYTHING RIGHT NOW.
+
+        Parameters
+        ----------
+        id :
+        document_id :
+        catalog_id :
+        filehash :
+        mime_type :
+        file_name :
+        size :
+
+        Returns
+        -------
+
+        """
+
+        doc_id = kwargs.get('document_id')
+
+        # Not sure what this should be doing
+        response_params = {'document_id': doc_id}
+
+        # Didn't want to deal with make_get_request
+        response = self.parent.s.get(url, params=kwargs, auth=self.parent.access_token)
+        json = response.json()[0]
+
+        file_id = json['id']
+
+        file_url = self.url + '?id=' + file_id
+
+        file_response = self.parent.s.get(file_url, auth=self.parent.access_token)
+
+        return file_id
+
+    def get_file_content_from_doc_id(self, doc_id, no_content=False):
+        # First need to make a request to find files based on the document ID.
+        # This returns the file ID for the attached file (if found)
+        params = {'document_id': doc_id}
+        headers = {'Content-Type': 'application/vnd.mendeley-file.1+json'}
+
+        resp = requests.get(self.url, params=params, headers=headers, auth=self.parent.access_token)
+
+        file_json = None
+        if resp.status_code == 404:
+            raise FileNotFoundError('Document could not be found.')
+        elif resp.status_code != 200:
+            print(resp)
+            raise PermissionError('Could not connect to the server.')
+        else:
+            file_json = resp.json()
+
+        if isinstance(file_json, list):
+            file_json = file_json[0]
+
+        file_name = file_json.get('file_name')
+        file_id = file_json.get('id')
+
+        if not no_content:
+            # Next need to make another API request using the file ID in order
+            # to retrieve the file content and download it.
+            new_url = self.url + '/' + file_id
+            new_params = {'file_id': file_id}
+            resp = requests.get(new_url, params=new_params, auth=self.parent.access_token)
+
+            file_content = resp.content
+        else:
+            file_content = None
+
+        return file_content, file_name, file_id
+
+
+    def link_file(self, file, params, file_url=None):
+        """
+
+        Parameters
+        ----------
+        file : dict
+            Of form {'file' : Buffered Reader for file}
+            The buffered reader was made by opening the pdf using open().
+        params : dict
+            Includes the following:
+            'title' = paper title
+            'id' = ID of the document to which
+            the file will be attached
+            (optional) '_return_type': return type of API.make_post_request
+            (json, object, raw, or response)
+
+        Returns
+        -------
+        Object specified by params['_return_type'].
+            Generally models.LinkedFile object
+
+        """
+        # Extract info from params
+        title = params.get('title')
+        doc_id = params['id']
+        object_fh = models.File
+
+        # Get rid of spaces in filename
+        if title is not None:
+            filename = urllib_quote(title) + '.pdf'
+            filename = filename.replace('/', '%2F')
+        else:
+            filename = doc_id + '.pdf'
+
+        # Turn file into a dict if it is not already
+        if not isinstance(file, dict):
+            file = {'file': file}
+
+        headers = dict()
+        headers['Content-Type'] = 'application/pdf'
+        headers['Content-Disposition'] = 'attachment; filename=%s' % filename
+        headers['Link'] = '<' + BASE_URL + '/documents/' + doc_id + '>; rel="document"'
+
+        API.make_post_request(API(), self.url, object_fh, params, headers=headers, files=file)
+
+    def link_file_from_url(self, file, params, file_url):
+        """
+
+        Parameters
+        ----------
+        file : dict
+            Of form {'file' : Buffered Reader for file}
+            The buffered reader was made by opening the pdf using open().
+        params : dict
+            Includes paper title, ID of the document to which
+            the file will be attached, and return type.
+        file_url : str
+            Direct URL to a pdf file.
+
+        Returns
+        -------
+        Object specified by params['_return_type'].
+            Generally models.LinkedFile object
+
+        """
+        # Extract info from params
+        title = params['title']
+        doc_id = params['id']
+        object_fh = models.LinkedFile
+
+        # Get rid of spaces in filename
+        filename = title.replace(' ', '_') + '.pdf'
+
+        headers = dict()
+        headers['Content-Type'] = 'application/pdf'
+        headers['Content-Disposition'] = 'attachment; filename=%s' % filename
+        headers['Link'] = '<' + BASE_URL + '/documents/' + doc_id + '>; rel="document"'
+
+        API.make_post_request(API(), self.url, object_fh, params, headers=headers, files=file)
+
+    def delete(self, file_id):
+        url = self.url + '/' + file_id
+        params = {'file_id': file_id}
+        resp = requests.delete(url, params=params, auth=self.parent.access_token)
+
+        if not resp.ok:
+            if resp.status_code == 404:
+                raise FileNotFoundError()
+            else:
+                raise ConnectionError('Mendeley error with status code %d' % resp.status_code)
+
+
+class Folders(object):
+    def __init__(self, parent):
+        self.parent = parent
+
+    def create(self, name):
+        url = BASE_URL + '/folders'
+
+        # Clean up name
+        name = name.replace(' ', '_')
+        name = urllib_quote(name)
+        params = {'name' : name}
+
+        headers = {'Content-Type' : 'application/vnd.mendeley-folder.1+json'}
+
+        return self.parent.make_post_request(url, models.Folder, params, headers=headers)
+
 
 class MetaData(object):
     # https://api.mendeley.com/apidocs#!/metadata/getDocumentIdByMetadata
@@ -897,6 +1244,7 @@ class Trash(object):
     def __init__(self, parent):
         self.parent = parent
 
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
     def get(self, **kwargs):
         """       
         
@@ -932,6 +1280,7 @@ class Trash(object):
             - 'last_modified'
             - 'title'
         """
+<<<<<<< HEAD
 
         url = BASE_URL + '/trash'
         if 'id' in kwargs:
@@ -979,6 +1328,26 @@ class Trash(object):
         
         return result
 
+=======
+
+        url = BASE_URL + '/trash'
+        if 'id' in kwargs:
+            id = kwargs.pop('id')
+            url += '/%s/' % id
+
+        view = kwargs.get('view')
+
+        limit = kwargs.get('limit', 20)
+        response_params = {'fcn': document_fcns[view], 'view': view, 'limit': limit, 'page_id':0}
+
+        verbose = _process_verbose(self.parent,kwargs,response_params)
+
+        if verbose:
+            print("Requesting up to %d trash documents from Mendeley with params: %s" % (limit, kwargs))            
+            
+        return self.parent.make_get_request(url, models.DocumentSet.create, kwargs, response_params)
+
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
     def delete(self, **kwargs):
         pass
     

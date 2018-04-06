@@ -1,9 +1,14 @@
+<<<<<<< HEAD
 __all__ = ['db_available','add_to_db']
+=======
+import math
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 
 # Third party imports
 import pandas
 
 # Local imports
+<<<<<<< HEAD
 from mendeley.optional import MissingModule
 from mendeley.optional import db
 
@@ -34,6 +39,20 @@ def add_to_db(info):
     """
     paper_info = _make_paper_info(info)
     db.log_info(paper_info=paper_info)
+=======
+from database import db_logging as db
+
+# TODO: Possibly copy these base classes into a file within mendeley_python
+from mendeley.optional import PaperInfo
+from mendeley.optional import base_objects as obj
+from mendeley.errors import *
+
+
+def add_to_db(info):
+    paper_info = _make_paper_info(info)
+    has_file = info.get('file_attached')
+    db.log_info(paper_info=paper_info, has_file=has_file)
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 
 
 def update_db_entry(info):
@@ -92,6 +111,7 @@ def update_db_entry(info):
                              updating_value=updating_values, filter_by_title=True)
 
 
+<<<<<<< HEAD
 def add_reference(ref, main_doi, main_title):
     """
     Inputs
@@ -109,6 +129,21 @@ def update_reference_field(identifying_value, updating_field, updating_value,
                               authors=authors,
                            filter_by_title=filter_by_title, 
                            filter_by_doi=filter_by_doi,
+=======
+def update_entry_field(identifying_value, updating_field, updating_value, filter_by_title=False, filter_by_doi=False):
+    db.update_entry_field(identifying_value, updating_field, updating_value,
+                          filter_by_title=filter_by_title, filter_by_doi=filter_by_doi)
+
+
+def add_reference(refs, main_doi, main_title=None):
+    db.add_references(refs=refs, main_paper_doi=main_doi, main_paper_title=main_title)
+
+
+def update_reference_field(identifying_value, updating_field, updating_value, citing_doi=None, authors=None,
+                           filter_by_title=False, filter_by_doi=False, filter_by_authors=False):
+    db.update_reference_field(identifying_value, updating_field, updating_value, citing_doi=citing_doi, authors=authors,
+                           filter_by_title=filter_by_title, filter_by_doi=filter_by_doi,
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
                               filter_by_authors=filter_by_authors)
 
 
@@ -126,6 +161,7 @@ def check_for_document(doi):
 
 
 def follow_refs_forward(doi):
+<<<<<<< HEAD
     """
     """
     return db.follow_refs_forward(doi)
@@ -139,6 +175,40 @@ def _make_paper_info(info):
     info : 
     
     """
+=======
+    return db.follow_refs_forward(doi)
+
+
+def check_multiple_constraints(params):
+    # Params is a dict
+
+    # first_key, first_value = params.popitem()
+    # query_results = db.main_paper_search_wrapper(first_key, first_value)
+    query_results = db.get_all_main_papers()
+
+    for key, value in params.items():
+        temp = []
+        for result in query_results:
+            search_value = getattr(result, key, '')
+            if search_value is None:
+                continue
+            else:
+                if value.lower() in search_value.lower():
+                    temp.append(result)
+        query_results = temp
+        # query_results = [result for result in query_results if value.lower() in str(getattr(result, key, '')).lower()]
+        if len(query_results) == 0:
+            return None
+
+    return query_results
+
+
+def delete_reference(ref):
+    db.delete_reference(ref)
+
+
+def _make_paper_info(info):
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
     if isinstance(info, PaperInfo):
         return info
     elif isinstance(info, dict):
@@ -155,6 +225,15 @@ def _mendeley_df_to_paper_info(df_row):
     df_dict = df_row.to_dict()
     paper_info = PaperInfo()
 
+<<<<<<< HEAD
+=======
+    # Catch NaNs, which are default Pandas values
+    for key in df_dict.keys():
+        if isinstance(df_dict.get(key), float):
+            if math.isnan(df_dict.get(key)):
+                df_dict[key] = None
+
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
     entry = obj.BaseEntry()
     entry.title = df_dict.get('title')
     entry.publication = df_dict.get('publisher')
@@ -223,6 +302,11 @@ def _mendeley_json_to_paper_info(json):
         if 'doi' in ids.keys():
             entry.doi = ids.get('doi')
             paper_info.doi = ids.get('doi')
+<<<<<<< HEAD
+=======
+        if 'pmid' in ids.keys():
+            entry.pubmed_id = ids.get('pmid')
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 
     paper_info.entry = entry
 

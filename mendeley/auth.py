@@ -34,7 +34,10 @@ import pytz #This seems to be a 3rd party library but is installed on
 #Local imports
 from . import utils
 from .utils import get_truncated_display_string as td
+<<<<<<< HEAD
 from .utils import get_list_class_display as cld
+=======
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 from . import config
 from . import errors
 
@@ -369,19 +372,26 @@ class _UserAuthorization(_Authorization):
      
     def create_initial_token(self,user_info):
         """
+<<<<<<< HEAD
         
         json = self.create_initial_token(user_info)        
         
+=======
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
         Parameters
         ----------
         user_info
         
+<<<<<<< HEAD
         See Also
         --------
         .init_json_attributes         
         
         """
         
+=======
+        """
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
         temp = UserTokenRetriever(user_info,self.session)
         return temp.token_json
         
@@ -421,6 +431,7 @@ class _UserAuthorization(_Authorization):
     def resolve_user_info(cls,user_name,user_info):
         """
         Given default values of user_name and user_info, determine
+<<<<<<< HEAD
         which one was a valid input (i.e. which was specified)
         
         Calling formats
@@ -429,6 +440,10 @@ class _UserAuthorization(_Authorization):
         self.resolve_user_info(None,user_info)
         """
         
+=======
+        which one was a valid input (i.e. which was speficied)
+        """
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
         if user_info is None:
             user_info = UserInfo.from_config(user_name)  
             
@@ -485,11 +500,14 @@ class _UserAuthorization(_Authorization):
 
 
         if r.status_code != requests.codes.ok:
+<<<<<<< HEAD
             error_data = r.json()
             if error_data["error"] == "invalid_grant":
                 self.recreate_initial_token()
                 return
                 
+=======
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
             _print_error("Error for user: ", self.user_name)
             
             if (self.from_disk):
@@ -718,7 +736,10 @@ class UserInfo(object):
         self.user_name = user_name
         self.password = password
         self.type = 'user input'
+<<<<<<< HEAD
         self.from_config = False
+=======
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
     
     @classmethod
     def from_config(cls,user_name=None):
@@ -734,16 +755,23 @@ class UserInfo(object):
         else:
             self.type = 'other user'
             
+<<<<<<< HEAD
         self.from_config = True
         
+=======
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
         return self
 
 
     def __repr__(self):
         pv = ['user_name',self.user_name,
               'password',self.password,
+<<<<<<< HEAD
               'type',self.type,
               'from_config',self.from_config]
+=======
+              'type',self.type]
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
         return utils.property_values_to_string(pv)
 
 

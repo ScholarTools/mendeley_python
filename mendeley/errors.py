@@ -9,6 +9,12 @@ class InvalidConfig(Exception):
 class OptionalLibraryError(Exception):
     pass
 
+<<<<<<< HEAD
+=======
+class UnsupportedEntryTypeError(Exception):
+    pass
+
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 
 # ----------------- User Library Errors ----------------
 class DOINotFoundError(KeyError):
@@ -17,7 +23,12 @@ class DOINotFoundError(KeyError):
 class DocNotFoundError(KeyError):
     pass
 
+<<<<<<< HEAD
 
+=======
+class DuplicateDocumentError(Exception):
+    pass
+>>>>>>> a454f3d2717b10f207860099d8466b8333988a38
 
 class CallFailedException(Exception):
     pass
