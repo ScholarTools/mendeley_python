@@ -357,11 +357,9 @@ class DocumentSet(object):
     @classmethod
     def create(cls, json, m, params):
         """
-        I believe this distinction was made to distinguish between instances
-        in which a set was required or instances in which by definition
-        only a single document would be returned. 
-        
-        This however needs to be clarified.
+        This is the entry point for the get document request response. It was created
+        to allow returning a DocumentSet for an array of values, or just
+        the document itself if a specific document was requested.
         """
 
         if isinstance(json, list):
@@ -373,11 +371,21 @@ class DocumentSet(object):
     # TODO: We should probably include a navigation method, similar
     # to Page in mendeley.pagination
 
+    def get_all_docs(self):
+        #TODO: Make sure we are on first page, if not go there
+        docs = [x for x in self]
+        self.docs = docs
+
     def first_page(self):
         #TODO: Implement this function
         pass
 
     def next_page(self):
+        """
+        If the next page does not exist then None is returned.
+        
+        
+        """        
         if 'next' not in self.links:
             return None
         else:
@@ -393,10 +401,27 @@ class DocumentSet(object):
         pass
 
     def last_page(self):
+        #This is not yet implemented because the pages are not numbereds
         pass
+        
+        """
+        if 'last' not in self.links:
+            return None
+        else:
+            page_id = self.page_id + 1
+            if self.verbose:
+                ('Requesting more documents from Mendeley (page #%d)' % page_id)
+                
+            self.response_params['page_id'] = page_id
+            next_url = self.links['last']['url']
+            return self.api.make_get_request(next_url, DocumentSet, None, self.response_params)
+        s"""
 
     def __repr__(self):
-        pv = ['links', self.links.keys(), 'docs', cld(self.docs), 'view', self.view]
+        pv = [
+        'links', self.links.keys(), 
+        'docs', cld(self.docs), 
+        'view', self.view]
         return utils.property_values_to_string(pv)
 
 
@@ -443,6 +468,22 @@ class File(ResponseObject):
             'file_location: %s\n' % self.file_location + \
             'document_id %s\n' % self.__getattr__('document_id')
 
+class Folder(object):
+    """
+
+    """
+    # TODO: Make this class do things
+
+    def __init__(self, json, m):
+        pass
+
+    def add_document(self):
+        pass
+
+    def __repr__(self):
+        pass
+
+    pass
 
 class Document(ResponseObject):
     """
@@ -664,23 +705,15 @@ class Document(ResponseObject):
             return utils.property_values_to_string(pv)
 
 
-class Folder(object):
-    """
 
-    """
-    # TODO: Make this class do things
+#%%
+#==============================================================================
+#                       Document View Types
+#==============================================================================
 
-    def __init__(self, json, m):
-        pass
-
-    def add_document(self):
-        pass
-
-    def __repr__(self):
-        pass
-
-    pass
-
+def get_ids_only(json, m):
+    return json["id"]    
+    
 
 # ???? How does this compare to
 class BibDocument(Document):

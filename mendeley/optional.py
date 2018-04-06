@@ -4,6 +4,8 @@ Handles importing of optional packages/modules. These imports are accomplished
 normally unless they are missing. In that case a MissingModule is imported that
 throws an error when you try and use it.
 
+TODO: document all optional imports
+
 rr
 pub_objects
 """
@@ -34,6 +36,13 @@ except ImportError:
     rr = MissingModule('The method called requires the library "reference_resolver" from the Scholar Tools Github repo')
     # TODO: Provide link to repo
     # Eventually pip the repo and specify pip is possible
+
+
+try:
+    from library_db import db_logging as db
+except ImportError:
+    db = MissingModule('The method called requires the library "ST_library_db" from the Scholar Tools Github repo')
+
 
 try:
     import pypub.publishers.pub_objects as pub_objects

@@ -34,6 +34,7 @@ import pytz #This seems to be a 3rd party library but is installed on
 #Local imports
 from . import utils
 from .utils import get_truncated_display_string as td
+from .utils import get_list_class_display as cld
 from . import config
 from . import errors
 
@@ -342,7 +343,8 @@ class _UserAuthorization(_Authorization):
         UserCredentials(session=my_session) #calls default user           
            
         """
-        
+    
+        #Avoid storing in class (avoid saving to disk)
         user_info = self.resolve_user_info(user_name,user_info)
         
         self.version = 1
@@ -354,13 +356,32 @@ class _UserAuthorization(_Authorization):
         self.init_json_attributes(json)
         self.save()
      
+    def recreate_initial_token(self):
+
+        #TODO: Support prompting user if we can't find
+        #the user name in the config file => presumably the user
+        #used manual entry    
+        
+        user_info = self.resolve_user_info(self.user_name,None)
+        json = self.create_initial_token(user_info)
+        self.init_json_attributes(json)
+        self.save()
+     
     def create_initial_token(self,user_info):
         """
+        
+        json = self.create_initial_token(user_info)        
+        
         Parameters
         ----------
         user_info
         
+        See Also
+        --------
+        .init_json_attributes         
+        
         """
+        
         temp = UserTokenRetriever(user_info,self.session)
         return temp.token_json
         
@@ -400,8 +421,14 @@ class _UserAuthorization(_Authorization):
     def resolve_user_info(cls,user_name,user_info):
         """
         Given default values of user_name and user_info, determine
-        which one was a valid input (i.e. which was speficied)
+        which one was a valid input (i.e. which was specified)
+        
+        Calling formats
+        ----------------
+        self.resolve_user_info(user_name,None)
+        self.resolve_user_info(None,user_info)
         """
+        
         if user_info is None:
             user_info = UserInfo.from_config(user_name)  
             
@@ -449,7 +476,20 @@ class _UserAuthorization(_Authorization):
         #'unsupported_grant_type'
         # => none of these
         #throw specific errors for each of these
+
+
+        #Renewal code
+        #---------------------------------------
+        #create_initial_token(self,user_info):
+
+
+
         if r.status_code != requests.codes.ok:
+            error_data = r.json()
+            if error_data["error"] == "invalid_grant":
+                self.recreate_initial_token()
+                return
+                
             _print_error("Error for user: ", self.user_name)
             
             if (self.from_disk):
@@ -666,12 +706,19 @@ class UserInfo(object):
         The user_name is actually an email address.
     password : str
         The user's password.
+    type : string
+        - 'user input'
+        - 'default'
+        - 'other user'
+    from_config : boolean
+    
     
     """
     def __init__(self,user_name,password):
         self.user_name = user_name
         self.password = password
         self.type = 'user input'
+        self.from_config = False
     
     @classmethod
     def from_config(cls,user_name=None):
@@ -687,13 +734,16 @@ class UserInfo(object):
         else:
             self.type = 'other user'
             
+        self.from_config = True
+        
         return self
 
 
     def __repr__(self):
         pv = ['user_name',self.user_name,
               'password',self.password,
-              'type',self.type]
+              'type',self.type,
+              'from_config',self.from_config]
         return utils.property_values_to_string(pv)
 
 

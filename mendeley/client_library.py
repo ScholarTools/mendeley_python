@@ -573,37 +573,48 @@ class Sync(object):
 
         start_modified_time = ctime()
         
-        # TODO: Include -1 here ...
-        doc_set = self.api.documents.get(modified_since=newest_modified_time, view='all')
+        doc_set = self.api.documents.get(modified_since=newest_modified_time, view='all',limit=0)
         
-        raw_au_docs = [x.json for x in doc_set]
+        nu_docs_as_json = [x.json for x in doc_set.docs]
+        
+        #TODO: Does this need to be classed?
+        #If not, build json view above view="json"
         self.new_and_updated_docs = doc_set.docs
         self.time_modified_check = ctime() - start_modified_time
 
-        if len(raw_au_docs) == 0:
+        if len(nu_docs_as_json) == 0:
             return
-
-        # TODO: Update name, I thought this was referring to our official copy
-        # which is currently self.docs
-        df = _raw_to_data_frame(raw_au_docs)
+        
+        self.verbose_print('Request returned %d updated or new docs' % len(nu_docs_as_json))
+        
+        df = _raw_to_data_frame(nu_docs_as_json)
 
         is_new_mask = df['created'] > newest_modified_time
         new_rows_df = df[is_new_mask]
         updated_rows_df = df[~is_new_mask]
 
-        # Log the new entries in the database
-        for x in range(len(new_rows_df)):
-            row = new_rows_df.iloc[x]
-            db_interface.add_to_db(row)
+        if len(new_rows_df) > 0:
+            self.verbose_print('%d new documents found' % len(new_rows_df))
+            self.docs = self.docs.append(new_rows_df)
+            
+            self.verbose_print('Updating database with new entries')
+            # Log the new entries in the database
+            for x in range(len(new_rows_df)):
+                row = new_rows_df.iloc[x]
+                db_interface.add_to_db(row)
+
+
+        #JAH TODO: I would prefer to have the message of # updated
+        #first then messages about the dbupdates
+        #
+        #   At a quick glance I need to look more closely at the indices work
 
         # Log the updated entries in the database
         for x in range(len(updated_rows_df)):
             row = updated_rows_df.iloc[x]
             db_interface.update_db_entry(row)
 
-        if len(new_rows_df) > 0:
-            self.verbose_print('%d new documents found' % len(new_rows_df))
-            self.docs = self.docs.append(new_rows_df)
+
 
         if len(updated_rows_df) > 0:
             self.verbose_print('%d updated documents found' % len(updated_rows_df))
@@ -627,8 +638,8 @@ class Sync(object):
         trash_start_time = ctime()
         self.verbose_print('Checking trash')
 
-        trash_set = self.api.trash.get(limit=500, view='all')
-        self.trash_ids = [x.doc_id for x in trash_set]
+        trash_set = self.api.trash.get(limit=0, view='ids')
+        self.trash_ids = trash_set.docs
 
         self.verbose_print('Finished checking trash, %d documents found' % len(self.trash_ids))
         self.time_trash_retrieval = ctime() - trash_start_time
@@ -641,8 +652,13 @@ class Sync(object):
 
         # This is way way faster :/ than the documents.get() method although
         # it is only documented sparsly.
-        # TODO: We could do the string conversion in the api
-        self.deleted_ids = self.api.documents.deleted_files(since=newest_modified_time)
+        #JAH: 2018-04 - method no longer exists :/
+        #self.deleted_ids = self.api.documents.deleted_files(since=newest_modified_time)
+        #TODO: What happens if newest_modified_time is empty????
+        #
+        #=> Do we even run this code???
+        temp = self.api.documents.get(deleted_since=newest_modified_time,limit=0)
+        self.deleted_ids = temp.docs
 
         self.verbose_print('Done requesting deleted file IDs, %d found' % len(self.deleted_ids))
         self.time_deleted_check = ctime() - deletion_start_time
@@ -678,32 +694,49 @@ def _raw_to_data_frame(raw, include_json=True):
     been set. This can cause headaches in later processing.
     """    
     
+    
+
     # Note that I'm not using the local attribute
     # as we can then use this for updating new information
-    df = pd.DataFrame(raw)
+    df = pd.DataFrame(raw,dtype="object")
     
-    #dtype=str   => doesn't work, wtf
-    #dtype={'identifiers':object}    => doesn't work, wtf
-    
-    #TODO: This is a complete mess with type inference ...    
+    #https://github.com/pandas-dev/pandas/issues/1972
+    df = df.where(pd.notnull(df), None)
     
     #TODO: The identifiers column may not exist :/ which would cause an error
     #below
 
+    #I'm hoping this is redundant given fillna above
     #Our goal with this line is that
     #https://github.com/pydata/pandas/issues/1972
-    df['identifiers'] = df['identifiers'].where(pd.notnull(df['identifiers']),None)    
-    
+    #df['identifiers'] = df['identifiers'].where(pd.notnull(df['identifiers']),None)    
+        
     # len(df) == 0 means that no documents were found.
     # Further operations on df would fail.
     if len(df) == 0:
         return df
+        
+    if include_json:
+        df['json'] = raw    
+        
+    #TODO: Could     
+        
+    #Ensuring minimum format
+    #---------------------------------------
+    if 'identifiers' not in df:   
+        df['identifiers'] = None
+        
+    if 'created' not in df:
+        df['created'] = None
+        
+    if 'last_modified' not in df:
+        df['last_modified'] = None
 
     df.set_index('id', inplace=True)
 
-    if include_json:
-        df['json'] = raw
 
+    #Formatting values
+    #----------------------------------------------------------
     # 2010-03-16T16:39:02.000Z
     # https://github.com/closeio/ciso8601
     # t2 = time.clock()

@@ -90,8 +90,12 @@ document_fcns = {None: models.Document,
                  'tags': models.TagsDocument,
                  'patent': models.PatentDocument,
                  'all': models.AllDocument,
-                 'deleted': models.DeletedDocument
+                 'deleted': models.DeletedDocument,
+                 'ids': models.get_ids_only
                  }
+                 
+def _print_error(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)                 
 
 #==============================================================================
 class API(object):
@@ -146,8 +150,12 @@ class API(object):
         self.trash = Trash(self)
 
     def __repr__(self):
-        # TODO: Finish all of these ..
-        pv = ['public_only', self.public_only, 'user_name', self.user_name]
+        pv = [
+            'last_url',self.last_url,
+            'last_response',self.last_response,
+            'last_params',"TODO: last_params",
+            'public_only', self.public_only, 
+            'user_name', self.user_name]
         return utils.property_values_to_string(pv)
 
     def make_post_request(self, url, object_fh, params, response_params=None, headers=None, files=None):
@@ -235,11 +243,14 @@ class API(object):
         self.last_params = params
 
         if not resp.ok:
-            # if r.status_code != good_status:
-            print(resp.text)
-            print('')
-            # TODO: This should be improved
-            raise Exception('Call failed with status: %d' % (resp.status_code))
+            _print_error("----------------   Error Details   ----------------")
+            _print_error("Mendeley API Get Requested Failed")
+            _print_error("Url: %s" % url)
+            _print_error("Raw Response:")
+            _print_error(resp.text)
+            _print_error("------------------------------------")            
+            
+            raise Exception('Call failed with status: %d, see above for details' % (resp.status_code))
 
         return self.handle_return(resp, return_type, response_params, object_fh)
 
@@ -446,8 +457,12 @@ class Documents(object):
             TODO
         starred : 
         limit : string or int (default 20)
-            Largest allowable value is 500. This is really the page limit since
-            the iterator will allow exceeding this value.
+            Largest allowable value is 500. 
+            
+            *** This is really the page limit since the iterator will 
+                allow exceeding this value.
+                
+            If 0 then everything is returned.    
         order :
             - 'asc' - sort the field in ascending order
             ' 'desc' - sort the field in descending order            
@@ -457,6 +472,7 @@ class Documents(object):
             - 'tags' : returns user's tags
             - 'patent'
             - 'all'
+            - 'ids'
         sort : string
             Field to sort on. Avaiable options:
             - 'created'
@@ -481,19 +497,55 @@ class Documents(object):
         convert_datetime_to_string(kwargs, 'modified_since')
         convert_datetime_to_string(kwargs, 'deleted_since')
 
+        
+        #View support
+        #-----------------------------------
+        #document_fcns = {None: models.Document,
+         #        'bib': models.BibDocument,
+          #       'client': models.ClientDocument,
+           #      'tags': models.TagsDocument,
+            #     'patent': models.PatentDocument,
+             #    'all': models.AllDocument,
+              #   'deleted': models.DeletedDocument
+               #  'ids': models.get_ids_only
         view = kwargs.get('view')
+        rp_view = view
+        rp_doc_fcn = document_fcns[view]
 
-        if 'deleted_since' in kwargs:
-            view = 'deleted'
+        if view == "ids":
+            #Default view of None seems to be the shortest
+            #All we want is the ids, so send as little as possible
+            del kwargs["view"]
+        elif 'deleted_since' in kwargs:
+            #Modify returned object
+            rp_view = 'deleted'
+            
 
         limit = kwargs.get('limit', 20)
-        response_params = {'fcn': document_fcns[view], 'view': view, 'limit': limit, 'page_id':0}
+        if limit == 0:
+            kwargs['limit'] = 500            
+            
+            
+        #Most of these are reference only, except for 
+        response_params = {
+        'fcn': rp_doc_fcn, 
+        'view': rp_view, 
+        'limit': limit, 
+        'page_id':0}
 
         verbose = _process_verbose(self.parent,kwargs,response_params)
         if verbose:
-            print("Requesting up to %d documents from Mendeley with params: %s" % (limit, kwargs))
+            if limit == 0:
+                print("Requesting all documents from Mendeley with params: %s" % (kwargs))    
+            else:
+                print("Requesting up to %d documents from Mendeley with params: %s" % (limit, kwargs))
+  
+        result = self.parent.make_get_request(url, models.DocumentSet.create, kwargs, response_params)
 
-        return self.parent.make_get_request(url, models.DocumentSet.create, kwargs, response_params)
+        if limit == 0:
+            result.get_all_docs()       
+        
+        return result
 
     def get_single(self, **kwargs):
         """
@@ -561,6 +613,12 @@ class Documents(object):
 
         return self.parent.make_get_request(url, models.DocumentSet.create, kwargs, response_params)
 
+    
+    #JAH TODO: Create methods
+    #Deleted since ...
+    #Updated since ...    
+    #These should wrap get in a smart way ...
+    
     def deleted_files(self, **kwargs):
         """
         Parameters
@@ -568,8 +626,11 @@ class Documents(object):
         since
         group_id
         
-        
+                
         """
+
+        #TODO: Throw deprecated error        
+        
         convert_datetime_to_string(kwargs, 'since')
 
         url = BASE_URL + '/deleted_documents'
@@ -876,18 +937,47 @@ class Trash(object):
         if 'id' in kwargs:
             id = kwargs.pop('id')
             url += '/%s/' % id
-
+            
+        #JAH TODO: This is duplicated with Documents.get
+        #Ideally we would call out to a similar function
         view = kwargs.get('view')
+        rp_view = view
+        rp_doc_fcn = document_fcns[view]
+            
+        if view == "ids":
+            #Default view of None seems to be the shortest
+            #All we want is the ids, so send as little as possible
+            del kwargs["view"]
+        elif 'deleted_since' in kwargs:
+            #Modify returned object
+            rp_view = 'deleted'
+            
 
         limit = kwargs.get('limit', 20)
-        response_params = {'fcn': document_fcns[view], 'view': view, 'limit': limit, 'page_id':0}
-
-        verbose = _process_verbose(self.parent,kwargs,response_params)
-
-        if verbose:
-            print("Requesting up to %d trash documents from Mendeley with params: %s" % (limit, kwargs))            
+        if limit == 0:
+            kwargs['limit'] = 500            
             
-        return self.parent.make_get_request(url, models.DocumentSet.create, kwargs, response_params)
+            
+        #Most of these are reference only, except for 
+        response_params = {
+        'fcn': rp_doc_fcn, 
+        'view': rp_view, 
+        'limit': limit, 
+        'page_id':0}   
+                
+        verbose = _process_verbose(self.parent,kwargs,response_params)
+        if verbose:
+            if limit == 0:
+                print("Requesting all trash documents from Mendeley with params: %s" % (kwargs))    
+            else:
+                print("Requesting up to %d trash documents from Mendeley with params: %s" % (limit, kwargs))
+  
+        result = self.parent.make_get_request(url, models.DocumentSet.create, kwargs, response_params)
+
+        if limit == 0:
+            result.get_all_docs()       
+        
+        return result
 
     def delete(self, **kwargs):
         pass

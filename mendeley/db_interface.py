@@ -1,16 +1,37 @@
+__all__ = ['db_available','add_to_db']
+
 # Third party imports
 import pandas
 
 # Local imports
-from database import db_logging as db
+from mendeley.optional import MissingModule
+from mendeley.optional import db
 
-# TODO: Possibly copy these base classes into a file within mendeley_python
+
+
+#Optional Imports
+#------------------------------------
+#pypub.paper_info
 from mendeley.optional import PaperInfo
+
+#TODO: This is a poor import name, fix this
+#pypub.scrapers
 from mendeley.optional import base_objects as obj
+
+#TODO: Enumerate errors
 from mendeley.errors import *
 
+#Public Interface
+#------------------------------------------------
+
+db_available = type(db) is not MissingModule
 
 def add_to_db(info):
+    """
+    Inputs
+    ------
+    info : dict, dataframe entry, pypub entry
+    """
     paper_info = _make_paper_info(info)
     db.log_info(paper_info=paper_info)
 
@@ -72,13 +93,22 @@ def update_db_entry(info):
 
 
 def add_reference(ref, main_doi, main_title):
+    """
+    Inputs
+    ------
+    """
     db.add_reference(ref=ref, main_paper_doi=main_doi, main_paper_title=main_title)
 
 
-def update_reference_field(identifying_value, updating_field, updating_value, citing_doi=None, authors=None,
-                           filter_by_title=False, filter_by_doi=False, filter_by_authors=False):
-    db.update_reference_field(identifying_value, updating_field, updating_value, citing_doi=citing_doi, authors=authors,
-                           filter_by_title=filter_by_title, filter_by_doi=filter_by_doi,
+def update_reference_field(identifying_value, updating_field, updating_value, 
+                           citing_doi=None, authors=None,
+                           filter_by_title=False, filter_by_doi=False, 
+                           filter_by_authors=False):
+    db.update_reference_field(identifying_value, updating_field, updating_value, 
+                              citing_doi=citing_doi, 
+                              authors=authors,
+                           filter_by_title=filter_by_title, 
+                           filter_by_doi=filter_by_doi,
                               filter_by_authors=filter_by_authors)
 
 
@@ -96,10 +126,19 @@ def check_for_document(doi):
 
 
 def follow_refs_forward(doi):
+    """
+    """
     return db.follow_refs_forward(doi)
 
 
 def _make_paper_info(info):
+    """
+    
+    Inputs
+    ------
+    info : 
+    
+    """
     if isinstance(info, PaperInfo):
         return info
     elif isinstance(info, dict):

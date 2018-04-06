@@ -61,11 +61,27 @@ class Config(object):
         self.validate()
     
     def get_user(self,user_name):
+        """
+        Calling Forms
+        -------------
+        1) Returns default user
+        self.get_user(None)
+        
+        2) Returns default user
+        self.get_user("default")
+
+        3) Returns user if specs can be found
+        self.get_user(user_name)
+
+        """
 
         if user_name is None:
             return self.default_user
         
         if user_name == 'default':
+            return self.default_user
+            
+        if self.default_user.user_name == user_name:
             return self.default_user
             
         if not hasattr(self,'other_users'):
@@ -132,6 +148,8 @@ class Config(object):
             self.other_users = config.other_users
 
     # TODO: rewrite without using utils
+    # Utils currently calls back into this class
+    # so we want to avoid circular dependencies ...
     '''
     def __repr__(self):
         pv = ['Oauth2Credentials', cld(self.Oauth2Credentials), 

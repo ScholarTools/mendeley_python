@@ -15,7 +15,8 @@ to load the config file.
 """
 
 #If specified, this specifies that the config file should be loaded
-#from the specified location. 
+#from the specified location. This should be the only value in the file
+#if it is present. 
 config_location = 'C:\users\my_mendeley_config.py'
 
 

@@ -25,6 +25,11 @@ def property_values_to_string(pv):
     ----------
     pv : OrderedDict
         Keys are properties, values are values
+        
+    Related Functions
+    -----------------
+    from .utils import get_truncated_display_string as td
+    from .utils import get_list_class_display as cld
     """
 
     # Max length
@@ -93,11 +98,17 @@ def user_name_to_file_name(user_name):
     return user_name.replace('.', '')
 
 
+#JAH: This calls into the config and is the only function to do so
+#I think this would be better in the config itself ...
+
 def get_save_root(sub_directories_list, create_folder_if_no_exist=True):
     """
     This function returns the location of the folder in which to save data
     for a given calling function.
     
+    
+    Default Location
+    ----------------
     The default save location is:
         <repo root>/data
     
@@ -108,6 +119,11 @@ def get_save_root(sub_directories_list, create_folder_if_no_exist=True):
     ----------
     sub_directories_list : string or list
     create_folder_if_no_exist : boolean
+    
+    Examples
+    --------
+    utils.get_save_root(['credentials'],True)
+    root_path = utils.get_save_root(['client_library'], True)
     
     """
 
